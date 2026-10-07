@@ -1,10 +1,8 @@
 {
   "files.autoSave": "onFocusChange",
-  "files.autoSaveDelay": 500,
   "files.exclude": {
     "**/__pycache__": true,
     "**/.venv": true,
-    "**/.vscode": true,
     "**/.temp": true,
     "**/.git": true
   },
@@ -26,7 +24,7 @@
     "**/.git/**": true
   },
   "editor.mouseWheelZoom": true,
-  "editor.fontFamily": "'0xProto Nerd Font', DalseoHealing",
+  "editor.fontFamily": "'0xProto Nerd Font', DalseoHealing, monospace",
   "editor.minimap.enabled": false,
   "editor.renderWhitespace": "boundary",
   "editor.cursorSmoothCaretAnimation": "on",

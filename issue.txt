@@ -1,0 +1,25 @@
+1. python 임베디드 패키지 대신 정식 패키지 설치. 단 의존성 제거를 위해 다음과 같이 실행
+C:\Users\devca\Downloads\python-3.12.10-amd64.exe /quiet InstallAllUsers=0 Include_launcher=0 Include_pip=1 PrependPath=0 Include_doc=0 Include_tcltk=0 TargetDir="C:\VSCode\data\lib\python"
+
+C:\Users\devca\Downloads\python-3.12.10-amd64.exe /quiet InstallAllUsers=0 Include_launcher=0 Include_pip=1 PrependPath=0 TargetDir="C:\VSCode\data\lib\python" REMOVE=Docs,tcltk
+
+파이썬은 실행 시 기본적으로 사용자의 윈도우 문서 폴더나 시스템 환경 변수를 탐색하려는 성질이 있음. 따라서 다음과 같이 run.bat구성-> launcher.exe나 pwsh이 실행될 때마다 반영되도록 검토
+
+@echo off
+:: 1. 기존 시스템의 파이썬 관련 환경 변수를 이 세션 내에서만 초기화
+set PYTHONHOME=
+set PYTHONPATH=
+
+:: 2. 윈도우 사용자 폴더(AppData)에 pip 캐시나 패키지가 쌓이는 것을 방지 (포터블화)
+set USERPROFILE=%~dp0.user_profile
+set HOME=%~dp0.user_profile
+set APPDATA=%~dp0.user_profile\AppData\Roaming
+
+:: 3. 현재 폴더의 파이썬을 최우선 경로로 지정
+set PATH=%~dp0;%~dp0Scripts;%PATH%
+
+:: 4. 명령 프롬프트 유지
+cmd /k
+
+
+2. pwsh용 .ps1과 vscode용 settings.json을 패키지에 내장하는 대신, 업데이트를 수시로 반영할 수 있도록 planxlab/utils 저장소에서 다운받도록 수정. 
