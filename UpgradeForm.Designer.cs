@@ -109,7 +109,7 @@ namespace VSCodePortableLauncher
             this.headerTitleLabel.Name = "headerTitleLabel";
             this.headerTitleLabel.Size = new System.Drawing.Size(138, 25);
             this.headerTitleLabel.TabIndex = 0;
-            this.headerTitleLabel.Text = "DevEnv Setup";
+            this.headerTitleLabel.Text = "CodeLauncher";
             //
             // settingsPanel
             //
@@ -515,7 +515,7 @@ namespace VSCodePortableLauncher
             this.MaximizeBox = false;
             this.Name = "UpgradeForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DevEnv Setup";
+            this.Text = "CodeLauncher";
             this.TopMost = true;
             this.headerPanel.ResumeLayout(false);
             this.headerPanel.PerformLayout();

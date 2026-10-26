@@ -12,16 +12,11 @@
     "**/dist/**": true,
     "**/build/**": true,
     "**/.vscode/**": true,
-    "**/.cache/**": true,
-    "**/__pycache__/**": true,
-    "**/.venv/**": true
+    "**/.cache/**": true
   },
   "search.exclude": {
     "**/dist/**": true,
-    "**/build/**": true,
-    "**/__pycache__/**": true,
-    "**/.venv/**": true,
-    "**/.git/**": true
+    "**/build/**": true
   },
   "editor.mouseWheelZoom": true,
   "editor.fontFamily": "'0xProto Nerd Font', DalseoHealing, monospace",
@@ -35,7 +30,6 @@
   "workbench.startupEditor": "none",
   "workbench.tree.indent": 22,
 
-  "security.workspace.trust.untrustedFiles": "newWindow",
   "window.commandCenter": false,
 
   "terminal.integrated.mouseWheelZoom": true,

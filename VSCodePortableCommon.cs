@@ -59,6 +59,23 @@ namespace VSCodePortableCommon
         // Constants - Optimized buffer sizes
         public const int BUFFER_SIZE = 65536; // 64KB for better I/O performance
         public const int EXTRACT_BUFFER_SIZE = 81920; // 80KB for extraction
+        public const string RuntimeInfoFileName = "codelauncher.info";
+        public const string RuntimeLogFileName = "codelauncher.log";
+
+        public static void MigrateLegacyRuntimeFiles(string installDir)
+        {
+            MigrateLegacyRuntimeFile(installDir, "pvs.info", RuntimeInfoFileName);
+            MigrateLegacyRuntimeFile(Path.Combine(installDir, "data"), "pvs.info", RuntimeInfoFileName);
+            MigrateLegacyRuntimeFile(installDir, "pvs.log", RuntimeLogFileName);
+        }
+
+        private static void MigrateLegacyRuntimeFile(string directory, string legacyFileName, string currentFileName)
+        {
+            string legacyPath = Path.Combine(directory, legacyFileName);
+            string currentPath = Path.Combine(directory, currentFileName);
+            if (File.Exists(legacyPath) && !File.Exists(currentPath))
+                File.Move(legacyPath, currentPath);
+        }
 
         /// <summary>
         /// Enable TLS 1.2 for HTTPS requests
@@ -1160,9 +1177,9 @@ namespace VSCodePortableCommon
                     updateStatus(componentName, "Cleaning...", 60);
                     logActivity("VSCode: Removing old files...");
 
-                    // Remove old VSCode files (preserve only data directory, pvs.info, and upgrade.log)
+                    // Remove old VSCode files (preserve only data directory, codelauncher.info, and upgrade.log)
                     var excludeDirs = new[] { "data" };
-                    var excludeFiles = new[] { "pvs.info", "upgrade.log" };
+                    var excludeFiles = new[] { CommonHelper.RuntimeInfoFileName, "upgrade.log" };
 
                     foreach (var dir in Directory.GetDirectories(baseDir))
                     {

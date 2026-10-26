@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$artifactPath = Join-Path $scriptDir "dist\devenv-setup.exe"
+$artifactPath = Join-Path $scriptDir "dist\CodeLauncher.exe"
 
 function Get-RepositorySlug {
     $remoteUrl = git config --get remote.origin.url
@@ -65,7 +65,7 @@ try {
     }
     else {
         Write-Host "Creating release $Tag and uploading artifact..." -ForegroundColor Cyan
-        gh release create $Tag $artifactPath --title $Title --notes "Release asset for devenv-setup.exe" --repo $repoSlug
+        gh release create $Tag $artifactPath --title $Title --notes "Release asset for CodeLauncher.exe" --repo $repoSlug
     }
 
     Write-Host "Release asset upload completed." -ForegroundColor Green

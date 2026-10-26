@@ -83,7 +83,7 @@ namespace VSCodePortableInstaller
             this.headerTitleLabel.ForeColor = System.Drawing.Color.White;
             this.headerTitleLabel.Location = new System.Drawing.Point(20, 10);
             this.headerTitleLabel.Name = "headerTitleLabel";
-            this.headerTitleLabel.Text = "DevEnv Setup";
+            this.headerTitleLabel.Text = "CodeLauncher";
             //
             // headerSubLabel
             //
@@ -479,7 +479,7 @@ namespace VSCodePortableInstaller
             this.MaximizeBox = false;
             this.Name = "InstallForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DevEnv Setup";
+            this.Text = "CodeLauncher";
             this.TopMost = true;
             this.headerPanel.ResumeLayout(false);
             this.headerPanel.PerformLayout();

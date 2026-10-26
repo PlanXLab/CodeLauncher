@@ -63,6 +63,7 @@ if ($Clean -or $Rebuild) {
     # Clean intermediate files
     $toClean = @(
         (Join-Path $scriptDir "launcher.exe"),
+        (Join-Path $scriptDir "CodeLauncher.exe"),
         (Join-Path $scriptDir "devenv-setup.exe")
     )
     foreach ($file in $toClean) {
@@ -256,12 +257,12 @@ try {
 }
 #endregion
 
-#region Step 2: Build devenv-setup.exe
+#region Step 2: Build CodeLauncher.exe
 Write-Host "`n========================================" -ForegroundColor Cyan
-Write-Host "Step 2: Building devenv-setup.exe" -ForegroundColor Cyan
+Write-Host "Step 2: Building CodeLauncher.exe" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
-$installerOutput = Join-Path $distDir "devenv-setup.exe"
+$installerOutput = Join-Path $distDir "CodeLauncher.exe"
 $installerResx = Join-Path $scriptDir "installer.resx"
 $profileTemplate = Join-Path $resDir "Microsoft.PowerShell_profile.ps1"
 $settingsTemplate = Join-Path $resDir "settings.json"
@@ -390,7 +391,7 @@ try {
         $fileInfo = Get-Item $installerOutput
         $sizeKB = [math]::Round($fileInfo.Length / 1KB, 1)
         
-        Write-Host "`n✓ devenv-setup.exe build succeeded!" -ForegroundColor Green
+        Write-Host "`n✓ CodeLauncher.exe build succeeded!" -ForegroundColor Green
         Write-Host "  Size: $sizeKB KB" -ForegroundColor Gray
         Write-Host "  Modified: $($fileInfo.LastWriteTime)" -ForegroundColor Gray
     } else {
@@ -402,14 +403,14 @@ try {
     exit 1
 }
 
-# Remove intermediate launcher.exe (already embedded in devenv-setup.exe)
+# Remove intermediate launcher.exe (already embedded in CodeLauncher.exe)
 if (Test-Path $launcherOutput) {
     $launcherSize = [math]::Round((Get-Item $launcherOutput).Length / 1KB, 1)
     Remove-Item $launcherOutput -Force
     Write-Host "`nRemoved intermediate file: launcher.exe ($launcherSize KB)" -ForegroundColor Gray
 }
 
-# Remove old installer.exe if exists (renamed to devenv-setup.exe)
+# Remove old installer.exe if exists (renamed to CodeLauncher.exe)
 $oldInstallerPath = Join-Path $distDir "installer.exe"
 if (Test-Path $oldInstallerPath) {
     try {
@@ -420,6 +421,13 @@ if (Test-Path $oldInstallerPath) {
         Write-Host "Please close any running instances and delete manually" -ForegroundColor Yellow
     }
 }
+
+# Remove the previous distribution filename.
+$legacyInstallerOutput = Join-Path $distDir "devenv-setup.exe"
+if (Test-Path $legacyInstallerOutput) {
+    Remove-Item $legacyInstallerOutput -Force
+    Write-Host "Removed old distribution file: devenv-setup.exe" -ForegroundColor Gray
+}
 #endregion
 
 #region Final Summary
@@ -429,10 +437,10 @@ Write-Host "========================================" -ForegroundColor Green
 
 if (Test-Path $installerOutput) {
     $installerSize = [math]::Round((Get-Item $installerOutput).Length / 1KB, 1)
-    Write-Host "  ✓ devenv-setup.exe: $installerSize KB (final distribution)" -ForegroundColor Gray
+    Write-Host "  ✓ CodeLauncher.exe: $installerSize KB (final distribution)" -ForegroundColor Gray
 }
 
 Write-Host "`nDeployment:" -ForegroundColor Cyan
-Write-Host "  Distribute: devenv-setup.exe only" -ForegroundColor White
+Write-Host "  Distribute: CodeLauncher.exe only" -ForegroundColor White
 Write-Host "  All resources embedded (fonts, profiles, launcher, theme)" -ForegroundColor Gray
 #endregion

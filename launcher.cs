@@ -33,10 +33,8 @@ namespace VSCodePortableLauncher
             "ms-python.python",
             "ms-python.vscode-pylance",
             "ms-python.vscode-python-envs",
-            "ms-vscode-remote.remote-ssh",
             "KevinRose.vsc-python-indent",
-            "usernamehw.errorlens",
-            "Gerrnperl.outline-map"
+            "usernamehw.errorlens"
         };
 
         // Win32 API for extracting icon from exe
@@ -63,7 +61,7 @@ namespace VSCodePortableLauncher
         public UpgradeForm(string installDir, List<string> upgrades)
         {
             pvsDir = installDir;
-            pvsInfo = Path.Combine(pvsDir, "pvs.info");
+            pvsInfo = Path.Combine(pvsDir, CommonHelper.RuntimeInfoFileName);
 
             upgradeCompleted = false;
             upgradeStarted = false;
@@ -227,7 +225,7 @@ namespace VSCodePortableLauncher
 
                 if (!File.Exists(pvsInfo))
                 {
-                    ShowError("pvs.info file not found.");
+                    ShowError("codelauncher.info file not found.");
                     return;
                 }
 
@@ -1063,7 +1061,7 @@ namespace VSCodePortableLauncher
         {
             try
             {
-                string logPath = Path.Combine(pvsDir, "pvs.log");
+                string logPath = Path.Combine(pvsDir, CommonHelper.RuntimeLogFileName);
                 string logHeader = "\r\n" + new string('=', 80) + "\r\n";
                 logHeader += "Upgrade Session: " + upgradeStartTime.ToString("yyyy-MM-dd HH:mm:ss") + "\r\n";
                 logHeader += new string('=', 80) + "\r\n";

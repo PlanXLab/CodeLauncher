@@ -1,22 +1,22 @@
-# DevEnv
+# CodeLauncher
 
-DevEnv is a portable Windows development environment installer and updater. The current repository is built around two WinForms executables:
+CodeLauncher is a portable Windows development environment installer and updater. The current repository is built around two WinForms executables:
 
-- `devenv-setup.exe`: initial installation
+- `CodeLauncher.exe`: initial installation
 - `launcher.exe`: launch, version checks, and upgrades
 
-The final distributable is `devenv-setup.exe` only. `launcher.exe` is embedded into the installer and extracted into the target folder during installation.
+The final distributable is `CodeLauncher.exe` only. `launcher.exe` is embedded into the installer and extracted into the target folder during installation.
 
 ## Download
 
-- Latest release page: https://github.com/PlanXLab/DevEnv/releases/latest
-- Latest `devenv-setup.exe`: https://github.com/PlanXLab/DevEnv/releases/latest/download/devenv-setup.exe
+- Latest release page: https://github.com/PlanXLab/CodeLauncher/releases/latest
+- Latest `CodeLauncher.exe`: https://github.com/PlanXLab/CodeLauncher/releases/latest/download/CodeLauncher.exe
 
 ## Current Architecture
 
 ### Installer
 
-`devenv-setup.exe` installs the latest available versions of the following components:
+`CodeLauncher.exe` installs the latest available versions of the following components:
 
 - VS Code
 - Python Embedded
@@ -29,10 +29,8 @@ The final distributable is `devenv-setup.exe` only. `launcher.exe` is embedded i
   - `zhuangtongfa.material-theme`
   - `ms-python.python`
   - `ms-python.vscode-pylance`
-  - `ms-vscode-remote.remote-ssh`
   - `KevinRose.vsc-python-indent`
   - `usernamehw.errorlens`
-  - `Gerrnperl.outline-map`
 
 Installer UI behavior:
 
@@ -63,8 +61,8 @@ Upgradeable components:
 
 The installation root contains the following runtime files:
 
-- `pvs.info`: installation path and installed component versions
-- `pvs.log`: installation log
+- `codelauncher.info`: installation path and installed component versions
+- `codelauncher.log`: installation log
 - `upgrade.log`: upgrade log
 - `upgrade_*`: launcher-generated upgrade flag files
 
@@ -76,8 +74,8 @@ A typical installed layout looks like this:
 <install-root>/
 ├─ Code.exe
 ├─ launcher.exe
-├─ pvs.info
-├─ pvs.log
+├─ codelauncher.info
+├─ codelauncher.log
 ├─ upgrade.log
 ├─ data/
 │  ├─ extensions/
@@ -94,7 +92,7 @@ A typical installed layout looks like this:
 
 ### End Users
 
-1. Download `devenv-setup.exe` from GitHub Releases.
+1. Download `CodeLauncher.exe` from GitHub Releases.
 2. Run it and choose the installation path and Python version.
 3. After installation, launch VS Code through `launcher.exe` or the created shortcut.
 4. From that point on, `launcher.exe` handles background version checks and upgrade entry.
@@ -207,4 +205,3 @@ print("Hello from replx")
 ```powershell
 foo.py    # runs: replx foo.py
 ```
-

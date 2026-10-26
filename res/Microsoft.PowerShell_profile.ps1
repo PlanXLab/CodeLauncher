@@ -110,8 +110,8 @@ if (Get-Alias -Name '?' -ErrorAction SilentlyContinue) {
 
 # Display modern-unix-win commands when '?' is entered
 function global:? {
-    # Read version from pvs.info
-    $pvsInfo = Join-Path $Base '..\..\..\pvs.info'
+    # Read version from codelauncher.info
+    $pvsInfo = Join-Path $Base '..\..\..\codelauncher.info'
     $pvsInfo = [System.IO.Path]::GetFullPath($pvsInfo)
     $modernUnixVersion = ''
     
@@ -126,7 +126,7 @@ function global:? {
     }
     
     if (-not $modernUnixVersion) {
-        Write-Host "modern-unix-win version not found in pvs.info" -ForegroundColor Red
+        Write-Host "modern-unix-win version not found in codelauncher.info" -ForegroundColor Red
         Write-Host "Expected path: $pvsInfo" -ForegroundColor Gray
         return
     }

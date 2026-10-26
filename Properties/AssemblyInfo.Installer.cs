@@ -1,8 +1,8 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("DevEnv Setup")]
-[assembly: AssemblyProduct("DevEnv Setup")]
+[assembly: AssemblyTitle("CodeLauncher")]
+[assembly: AssemblyProduct("CodeLauncher")]
 [assembly: AssemblyCompany("PlanXLab")]
 [assembly: AssemblyCopyright("PlanXLab")]
 [assembly: AssemblyVersion("1.0.1.0")]

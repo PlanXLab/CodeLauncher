@@ -29,6 +29,8 @@ namespace VSCodePortableLauncher
         {
             try
             {
+                CommonHelper.MigrateLegacyRuntimeFiles(AppDomain.CurrentDomain.BaseDirectory);
+
                 // --init argument for PVS reset/initialization
                 if (args.Contains("--init"))
                 {
@@ -60,7 +62,7 @@ namespace VSCodePortableLauncher
         static int RunLauncher(bool fromShortcut = false)
         {
             string pvsDir = AppDomain.CurrentDomain.BaseDirectory;
-            string pvsInfo = Path.Combine(pvsDir, "pvs.info");
+            string pvsInfo = Path.Combine(pvsDir, CommonHelper.RuntimeInfoFileName);
 
             // Step 1: Check if launched from shortcut
             bool runtimeContextChanged = false;
@@ -332,7 +334,7 @@ namespace VSCodePortableLauncher
         static async Task<int> CheckVersionsAsync()
         {
             string pvsDir = AppDomain.CurrentDomain.BaseDirectory;
-            string pvsInfo = Path.Combine(pvsDir, "pvs.info");
+            string pvsInfo = Path.Combine(pvsDir, CommonHelper.RuntimeInfoFileName);
 
             try
             {
@@ -591,6 +593,11 @@ namespace VSCodePortableLauncher
                     .ToList();
 
                 var requiredExtensions = UpgradeForm.VSCODE_EXTENSIONS.ToList();
+                var extensionsToPreserve = new[]
+                {
+                    "ms-vscode-remote.remote-ssh",
+                    "Gerrnperl.outline-map"
+                };
 
                 foreach (var required in PlatformSensitiveVSCodeExtensions)
                 {
@@ -612,7 +619,9 @@ namespace VSCodePortableLauncher
                 var toRemove = installedDirs.Where(installed =>
                 {
                     return !requiredExtensions.Any(required =>
-                        installed.StartsWith(required + "-", StringComparison.OrdinalIgnoreCase));
+                               installed.StartsWith(required + "-", StringComparison.OrdinalIgnoreCase)) &&
+                           !extensionsToPreserve.Any(preserved =>
+                               installed.StartsWith(preserved + "-", StringComparison.OrdinalIgnoreCase));
                 }).ToList();
 
                 // Remove unwanted extensions

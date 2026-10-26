@@ -20,6 +20,3 @@ set PATH=%~dp0;%~dp0Scripts;%PATH%
 
 :: 4. 명령 프롬프트 유지
 cmd /k
-
-
-2. pwsh용 .ps1과 vscode용 settings.json을 패키지에 내장하는 대신, 업데이트를 수시로 반영할 수 있도록 planxlab/utils 저장소에서 다운받도록 수정. 

@@ -934,6 +934,8 @@ namespace VSCodePortableInstaller
         {
             try
             {
+                CommonHelper.MigrateLegacyRuntimeFiles(installDir);
+
                 // Check for cancellation before starting
                 cancellationToken.ThrowIfCancellationRequested();
                 
@@ -1039,7 +1041,7 @@ namespace VSCodePortableInstaller
                 // Stop elapsed timer
                 StopElapsedTimer();
 
-                // Save installation log to pvs.log
+                // Save installation log to codelauncher.log
                 SaveInstallLog();
 
                 installCompleted = true;
@@ -1403,7 +1405,7 @@ namespace VSCodePortableInstaller
                 normalized.IndexOf("CLI detected", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 normalized.IndexOf("Found launcher resource:", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 normalized.IndexOf("Launcher extracted to:", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                normalized.IndexOf("pvs.info created successfully", StringComparison.OrdinalIgnoreCase) >= 0)
+                normalized.IndexOf("codelauncher.info created successfully", StringComparison.OrdinalIgnoreCase) >= 0)
                 return null;
 
             if (Regex.IsMatch(normalized, @"Downloading\.\.\.\s+\d+%", RegexOptions.IgnoreCase) ||
@@ -1463,7 +1465,7 @@ namespace VSCodePortableInstaller
                 return "PowerShell 7: Waiting for VS Code core download";
             if (normalized.IndexOf("Waiting for VS Code download to finish before installing pip", StringComparison.OrdinalIgnoreCase) >= 0)
                 return "Python: Waiting for VS Code core download";
-            if (normalized.Equals("Creating pvs.info file...", StringComparison.OrdinalIgnoreCase))
+            if (normalized.Equals("Creating codelauncher.info file...", StringComparison.OrdinalIgnoreCase))
                 return "Finalizing setup metadata";
             if (normalized.Equals("Extracting launcher.exe from embedded resources...", StringComparison.OrdinalIgnoreCase))
                 return "Finalizing launcher";
@@ -1504,7 +1506,7 @@ namespace VSCodePortableInstaller
         {
             try
             {
-                string logPath = Path.Combine(installDir, "pvs.log");
+                string logPath = Path.Combine(installDir, CommonHelper.RuntimeLogFileName);
                 string logHeader = "\r\n" + new string('=', 80) + "\r\n";
                 logHeader += "Installation Session: " + installStartTime.ToString("yyyy-MM-dd HH:mm:ss") + "\r\n";
                 logHeader += new string('=', 80) + "\r\n";
@@ -1557,10 +1559,10 @@ namespace VSCodePortableInstaller
                 {
                     var versions = await InstallPowerShell7Async(token);
                     
-                    // Update pvs.info with PowerShell versions
+                    // Update codelauncher.info with PowerShell versions
                     if (versions.Count > 0)
                     {
-                        string pvsInfoPath = Path.Combine(installDir, "data", "pvs.info");
+                        string pvsInfoPath = Path.Combine(installDir, "data", CommonHelper.RuntimeInfoFileName);
                         if (File.Exists(pvsInfoPath))
                         {
                             var lines = File.ReadAllLines(pvsInfoPath).ToList();
@@ -1578,7 +1580,7 @@ namespace VSCodePortableInstaller
                             }
                             
                             File.WriteAllLines(pvsInfoPath, lines, Encoding.UTF8);
-                            LogActivity("PowerShell 7: pvs.info updated");
+                            LogActivity("PowerShell 7: codelauncher.info updated");
                         }
                     }
                     
@@ -1634,8 +1636,10 @@ namespace VSCodePortableInstaller
                 {
                     var allVersions = new Dictionary<string, string>();
                     
-                    // Read existing pvs.info to get already installed versions
-                    string pvsInfoPath = Path.Combine(installDir, "pvs.info");
+                    CommonHelper.MigrateLegacyRuntimeFiles(installDir);
+
+                    // Read existing codelauncher.info to get already installed versions
+                    string pvsInfoPath = Path.Combine(installDir, CommonHelper.RuntimeInfoFileName);
                     if (File.Exists(pvsInfoPath))
                     {
                         var lines = File.ReadAllLines(pvsInfoPath);
@@ -1651,7 +1655,7 @@ namespace VSCodePortableInstaller
                         LogActivity("Found " + allVersions.Count + " already installed components");
                     }
                     
-                    // Check which critical components need retry (check both pvs.info AND disk)
+                    // Check which critical components need retry (check both codelauncher.info AND disk)
                     // Python: needs retry if python.exe OR pip.cmd is missing
                     string pythonExeOnDisk = Path.Combine(installDir, "data", "lib", "python", "python.exe");
                     string pipCmdOnDisk    = Path.Combine(installDir, "data", "lib", "python", "pip.cmd");
@@ -2841,10 +2845,8 @@ namespace VSCodePortableInstaller
                     "zhuangtongfa.material-theme",
                     "ms-python.python",
                     "ms-python.vscode-pylance",
-                    "ms-vscode-remote.remote-ssh",
                     "KevinRose.vsc-python-indent",
-                    "usernamehw.errorlens",
-                    "Gerrnperl.outline-map"
+                    "usernamehw.errorlens"
                 };
 
                 // Brief wait for file system to settle after VSCode extraction
@@ -3846,10 +3848,10 @@ namespace VSCodePortableInstaller
         {
             try
             {
-                UpdateCurrentTask("Creating pvs.info...");
-                LogActivity("Creating pvs.info file...");
+                UpdateCurrentTask("Creating codelauncher.info...");
+                LogActivity("Creating codelauncher.info file...");
                 
-                string pvsInfo = Path.Combine(installDir, "pvs.info");
+                string pvsInfo = Path.Combine(installDir, CommonHelper.RuntimeInfoFileName);
                 var lines = new List<string>();
                 
                 lines.Add("INSTALL_PATH=" + installDir);
@@ -3875,12 +3877,12 @@ namespace VSCodePortableInstaller
                 }
 
                 File.WriteAllLines(pvsInfo, lines, Encoding.UTF8);
-                LogActivity("pvs.info created successfully at: " + pvsInfo);
+                LogActivity("codelauncher.info created successfully at: " + pvsInfo);
                 await Task.CompletedTask;
             }
             catch (Exception ex)
             {
-                LogActivity("ERROR: Failed to create pvs.info - " + ex.Message);
+                LogActivity("ERROR: Failed to create codelauncher.info - " + ex.Message);
             }
         }
 
