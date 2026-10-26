@@ -9,7 +9,6 @@ The final distributable is `CodeLauncher.exe` only. `launcher.exe` is embedded i
 
 ## Download
 
-- Latest release page: https://github.com/PlanXLab/CodeLauncher/releases/latest
 - Latest `CodeLauncher.exe`: https://github.com/PlanXLab/CodeLauncher/releases/latest/download/CodeLauncher.exe
 
 ## Current Architecture
