@@ -1,4 +1,5 @@
 dist/
+Properties/
 test/
 .build.md
 build.ps1
