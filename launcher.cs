@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -79,6 +80,21 @@ namespace VSCodePortableLauncher
             System.Net.ServicePointManager.Expect100Continue = false;
 
             InitializeComponent();
+            CodeLauncherTheme.Apply(
+                this,
+                headerPanel,
+                headerTitleLabel,
+                headerSubLabel,
+                label1,
+                settingsPanel,
+                separatorPanel,
+                progressPanel,
+                componentTable,
+                activityLog,
+                logHeaderLabel,
+                upgradeButton,
+                cancelButton);
+            cancelButton.Text = "Skip updates";
 
             // Set form icon (extract from launcher.exe's win32 icon resource)
             try
@@ -124,9 +140,9 @@ namespace VSCodePortableLauncher
         {
             var componentMap = new Dictionary<string, string>
             {
+                { "upgrade_python", "Python" },
                 { "upgrade_pwsh7", "PowerShell 7" },
                 { "upgrade_ohmyposh", "Oh My Posh" },
-                { "upgrade_term_icons", "Terminal-Icons" },
                 { "upgrade_psfzf", "PSFzf" },
                 { "upgrade_modern_unix", "modern-unix-win" },
                 { "upgrade_vscode", "VSCode" }
@@ -178,13 +194,7 @@ namespace VSCodePortableLauncher
                     return;
 
                 upgradeStarted = true;
-                upgradeButton.Enabled = false;
-                upgradeButton.Text = "Upgrading...";
-                upgradeButton.BackColor = Color.FromArgb(200, 200, 200);
-                upgradeButton.ForeColor = Color.FromArgb(100, 100, 100);
-                upgradeButton.FlatStyle = FlatStyle.Flat;
-                upgradeButton.FlatAppearance.BorderSize = 0;
-                upgradeButton.Cursor = Cursors.WaitCursor;
+                CodeLauncherTheme.StyleBusyButton(upgradeButton, "Updating...");
                 cancelButton.Enabled = false;
                 UpdateCurrentTask("Now: Preparing updates");
 
@@ -225,47 +235,51 @@ namespace VSCodePortableLauncher
 
                 if (!File.Exists(pvsInfo))
                 {
-                    ShowError("codelauncher.info file not found.");
-                    return;
+                    throw new FileNotFoundException("The CodeLauncher version file was not found.", pvsInfo);
                 }
 
                 // Terminate Code.exe if pwsh7 or vscode upgrade is needed
                 bool hasPwsh7Upgrade = pendingUpgrades.Contains("upgrade_pwsh7");
-                bool hasModuleUpgrade = pendingUpgrades.Any(f => f == "upgrade_ohmyposh" || f == "upgrade_term_icons" || f == "upgrade_psfzf" || f == "upgrade_modern_unix");
+                bool hasPythonUpgrade = pendingUpgrades.Contains("upgrade_python");
+                bool hasOhMyPoshUpgrade = pendingUpgrades.Contains("upgrade_ohmyposh");
+                bool hasModuleUpgrade = pendingUpgrades.Any(f => f == "upgrade_ohmyposh" || f == "upgrade_psfzf" || f == "upgrade_modern_unix");
                 bool hasVSCodeUpgrade = pendingUpgrades.Contains("upgrade_vscode");
 
-                if (hasPwsh7Upgrade || hasVSCodeUpgrade)
+                if (hasPwsh7Upgrade || hasPythonUpgrade || hasOhMyPoshUpgrade || hasVSCodeUpgrade)
                 {
                     LogActivity("Checking for running Code.exe processes...");
                     string codeExePath = Path.Combine(pvsDir, "Code.exe");
 
-                    var codeProcesses = Process.GetProcesses()
-                        .Where(p =>
-                        {
-                            try
-                            {
-                                if (p.MainModule != null && p.MainModule.FileName != null)
-                                    return p.MainModule.FileName.Equals(codeExePath, StringComparison.OrdinalIgnoreCase);
-                                return false;
-                            }
-                            catch { return false; }
-                        })
-                        .ToList();
-
-                    if (codeProcesses.Any())
+                    var codeProcesses = Process.GetProcessesByName("Code");
+                    foreach (var proc in codeProcesses)
                     {
-                        LogActivity("Found " + codeProcesses.Count + " Code.exe process(es). Terminating...");
-                        foreach (var proc in codeProcesses)
+                        using (proc)
                         {
+                            string processPath;
                             try
                             {
-                                proc.Kill();
-                                proc.WaitForExit(5000);
+                                ProcessModule processModule = proc.MainModule;
+                                processPath = processModule == null ? null : processModule.FileName;
                             }
-                            catch { }
+                            catch (Win32Exception ex)
+                            {
+                                LogActivity("Could not inspect a Code.exe process; update will not terminate it: " + ex.Message);
+                                continue;
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                continue;
+                            }
+
+                            if (string.IsNullOrEmpty(processPath) ||
+                                !string.Equals(Path.GetFullPath(processPath), Path.GetFullPath(codeExePath), StringComparison.OrdinalIgnoreCase))
+                                continue;
+
+                            LogActivity("Closing Code.exe before updating files...");
+                            proc.CloseMainWindow();
+                            if (!proc.WaitForExit(20000))
+                                throw new IOException("Close the running VS Code window and retry the update.");
                         }
-                        await Task.Delay(1000); // Wait for cleanup
-                        LogActivity("Code.exe processes terminated.");
                     }
                 }
 
@@ -286,22 +300,16 @@ namespace VSCodePortableLauncher
                     LogActivity("PowerShell 7: Upgrading first (required for modules)...");
 
                     // Run pwsh7 and vscode in parallel if both need upgrade
+                    var phase1Tasks = new List<Task<KeyValuePair<string, string>>>
+                    {
+                        UpgradePowerShell7Async()
+                    };
                     if (hasVSCodeUpgrade)
-                    {
-                        var phase1Tasks = new List<Task<KeyValuePair<string, string>>>
-                        {
-                            UpgradePowerShell7Async(),
-                            UpgradeVSCodeAsync()
-                        };
-                        var phase1Results = await Task.WhenAll(phase1Tasks);
-                        allResults.AddRange(phase1Results.Where(r => !string.IsNullOrEmpty(r.Value)));
-                    }
-                    else
-                    {
-                        var pwsh7Result = await UpgradePowerShell7Async();
-                        if (!string.IsNullOrEmpty(pwsh7Result.Value))
-                            allResults.Add(pwsh7Result);
-                    }
+                        phase1Tasks.Add(UpgradeVSCodeAsync());
+                    if (hasPythonUpgrade)
+                        phase1Tasks.Add(UpgradePythonAsync());
+                    var phase1Results = await Task.WhenAll(phase1Tasks);
+                    allResults.AddRange(phase1Results.Where(r => !string.IsNullOrEmpty(r.Value)));
 
                     // Wait for PowerShell to be ready (optimized polling)
                     string pwshExe = Path.Combine(pvsDir, "data", "lib", "pwsh", "pwsh.exe");
@@ -323,9 +331,6 @@ namespace VSCodePortableLauncher
                 if (pendingUpgrades.Contains("upgrade_ohmyposh"))
                     parallelTasks.Add(UpgradeOhMyPoshAsync());
 
-                if (pendingUpgrades.Contains("upgrade_term_icons"))
-                    parallelTasks.Add(UpgradeModuleAsync("Terminal-Icons", "TERMINAL_ICONS_VERSION"));
-
                 if (pendingUpgrades.Contains("upgrade_psfzf"))
                     parallelTasks.Add(UpgradeModuleAsync("PSFzf", "PSFZF_VERSION"));
 
@@ -336,16 +341,36 @@ namespace VSCodePortableLauncher
                 if (hasVSCodeUpgrade && !(hasPwsh7Upgrade && hasModuleUpgrade))
                     parallelTasks.Add(UpgradeVSCodeAsync());
 
+                if (hasPythonUpgrade && !(hasPwsh7Upgrade && hasModuleUpgrade))
+                    parallelTasks.Add(UpgradePythonAsync());
+
                 if (parallelTasks.Any())
                 {
                     var parallelResults = await Task.WhenAll(parallelTasks);
                     allResults.AddRange(parallelResults.Where(r => !string.IsNullOrEmpty(r.Value)));
                 }
 
-                UpdateVersionsInInfo(allResults);
-                DeleteUpgradeFlags();
+                var completedFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var result in allResults)
+                {
+                    if (string.IsNullOrEmpty(result.Value))
+                        continue;
+                    string flag = GetUpgradeFlagForVersionKey(result.Key);
+                    if (!string.IsNullOrEmpty(flag))
+                        completedFlags.Add(flag);
+                }
 
-                LogActivity("Upgrade completed successfully!");
+                if (allResults.Count > 0)
+                    UpdateVersionsInInfo(allResults);
+                DeleteUpgradeFlags(completedFlags);
+
+                var failedFlags = pendingUpgrades
+                    .Where(flag => !completedFlags.Contains(flag))
+                    .ToList();
+                if (failedFlags.Count == 0)
+                    LogActivity("Upgrade completed successfully!");
+                else
+                    LogActivity("Upgrade incomplete. Remaining updates: " + string.Join(", ", failedFlags.ToArray()));
 
                 if (upgradeTimer != null)
                 {
@@ -361,19 +386,32 @@ namespace VSCodePortableLauncher
                 StopElapsedTimer();
 
                 SaveUpgradeLog();
-
-                upgradeCompleted = true;
-                Invoke(new Action(() =>
+                if (failedFlags.Count == 0)
                 {
-                    upgradeButton.Enabled = true;
-                    upgradeButton.Text = "Exit";
-                    upgradeButton.BackColor = Color.FromArgb(0, 120, 215);
-                    upgradeButton.ForeColor = Color.White;
-                    upgradeButton.FlatStyle = FlatStyle.Flat;
-                    upgradeButton.FlatAppearance.BorderSize = 0;
-                    upgradeButton.Cursor = Cursors.Hand;
-                    UpdateCurrentTask("Done: Updates applied successfully");
-                }));
+                    upgradeCompleted = true;
+                    Invoke(new Action(() =>
+                    {
+                        cancelButton.Enabled = false;
+                        UpdateCurrentTask("Done: Updates applied successfully");
+                        Close();
+                    }));
+                }
+                else
+                {
+                    pendingUpgrades = failedFlags;
+                    upgradeStarted = false;
+                    upgradeCompleted = false;
+                    Invoke(new Action(() =>
+                    {
+                        upgradeButton.Enabled = true;
+                        upgradeButton.Text = "Retry failed updates";
+                        CodeLauncherTheme.StylePrimaryButton(upgradeButton);
+                        cancelButton.Enabled = true;
+                        cancelButton.Text = "Launch without updates";
+                        UpdateCurrentTask("Check: Some updates failed");
+                    }));
+                    ShowError("Some package updates failed. You can retry them or launch VS Code without those updates.");
+                }
             }
             catch (Exception ex)
             {
@@ -384,16 +422,15 @@ namespace VSCodePortableLauncher
                 // Stop elapsed timer
                 StopElapsedTimer();
                 
-                upgradeCompleted = true;
+                upgradeStarted = false;
+                upgradeCompleted = false;
                 Invoke(new Action(() =>
                 {
                     upgradeButton.Enabled = true;
-                    upgradeButton.Text = "Exit";
-                    upgradeButton.BackColor = Color.FromArgb(0, 120, 215);
-                    upgradeButton.ForeColor = Color.White;
-                    upgradeButton.FlatStyle = FlatStyle.Flat;
-                    upgradeButton.FlatAppearance.BorderSize = 0;
-                    upgradeButton.Cursor = Cursors.Hand;
+                    upgradeButton.Text = "Retry updates";
+                    CodeLauncherTheme.StylePrimaryButton(upgradeButton);
+                    cancelButton.Enabled = true;
+                    cancelButton.Text = "Launch without updates";
                     UpdateCurrentTask("Check: Upgrade failed");
                 }));
             }
@@ -409,9 +446,9 @@ namespace VSCodePortableLauncher
 
             var componentMap = new Dictionary<string, Tuple<Label, Label, ProgressBar>>
             {
+                { "Python", Tuple.Create(pythonNameLabel, pythonStatusLabel, pythonProgressBar) },
                 { "PowerShell 7", Tuple.Create(pwsh7NameLabel, pwsh7StatusLabel, pwsh7ProgressBar) },
                 { "Oh My Posh", Tuple.Create(ohmyposhNameLabel, ohmyposhStatusLabel, ohmyposhProgressBar) },
-                { "Terminal-Icons", Tuple.Create(termIconsNameLabel, termIconsStatusLabel, termIconsProgressBar) },
                 { "PSFzf", Tuple.Create(psfzfNameLabel, psfzfStatusLabel, psfzfProgressBar) },
                 { "modern-unix-win", Tuple.Create(modernUnixNameLabel, modernUnixStatusLabel, modernUnixProgressBar) },
                 { "VSCode", Tuple.Create(vscodeNameLabel, vscodeStatusLabel, vscodeProgressBar) }
@@ -431,14 +468,14 @@ namespace VSCodePortableLauncher
                 {
                     kvp.Value.Item1.Text = GetDisplayComponentName(kvp.Key);
                     kvp.Value.Item2.Text = "Waiting";
-                    kvp.Value.Item2.ForeColor = Color.FromArgb(160, 160, 160);
+                    kvp.Value.Item2.ForeColor = CodeLauncherTheme.TextTertiary;
                     kvp.Value.Item3.Value = 0;
                 }
                 else
                 {
                     kvp.Value.Item1.Text = "-";
                     kvp.Value.Item2.Text = "Not needed";
-                    kvp.Value.Item2.ForeColor = Color.FromArgb(180, 180, 180);
+                    kvp.Value.Item2.ForeColor = CodeLauncherTheme.TextTertiary;
                     kvp.Value.Item3.Value = 0;
                 }
             }
@@ -496,13 +533,13 @@ namespace VSCodePortableLauncher
                     statusLabel = pwsh7StatusLabel;
                     progressBar = pwsh7ProgressBar;
                     break;
+                case "Python":
+                    statusLabel = pythonStatusLabel;
+                    progressBar = pythonProgressBar;
+                    break;
                 case "Oh My Posh":
                     statusLabel = ohmyposhStatusLabel;
                     progressBar = ohmyposhProgressBar;
-                    break;
-                case "Terminal-Icons":
-                    statusLabel = termIconsStatusLabel;
-                    progressBar = termIconsProgressBar;
                     break;
                 case "PSFzf":
                     statusLabel = psfzfStatusLabel;
@@ -545,15 +582,15 @@ namespace VSCodePortableLauncher
                 progressBar.Value = Math.Min(progress, 100);
 
                 if (category == "Waiting")
-                    statusLabel.ForeColor = Color.FromArgb(160, 160, 160);
+                    statusLabel.ForeColor = CodeLauncherTheme.TextTertiary;
                 else if (category == "Downloading")
-                    statusLabel.ForeColor = Color.FromArgb(0, 120, 212);
+                    statusLabel.ForeColor = CodeLauncherTheme.Accent;
                 else if (category == "Working")
-                    statusLabel.ForeColor = Color.FromArgb(0, 120, 212);
+                    statusLabel.ForeColor = CodeLauncherTheme.Accent;
                 else if (category == "Completed")
-                    statusLabel.ForeColor = Color.FromArgb(16, 124, 16);
+                    statusLabel.ForeColor = CodeLauncherTheme.Success;
                 else
-                    statusLabel.ForeColor = Color.FromArgb(196, 43, 28);
+                    statusLabel.ForeColor = CodeLauncherTheme.Error;
 
                 overallStatusOverride = null;
                 UpdateOverallProgress();
@@ -710,7 +747,6 @@ namespace VSCodePortableLauncher
         {
             yield return Tuple.Create("PowerShell 7", pwsh7NameLabel, pwsh7StatusLabel, pwsh7ProgressBar, pwsh7NameLabel.Enabled);
             yield return Tuple.Create("Oh My Posh", ohmyposhNameLabel, ohmyposhStatusLabel, ohmyposhProgressBar, ohmyposhNameLabel.Enabled);
-            yield return Tuple.Create("Terminal-Icons", termIconsNameLabel, termIconsStatusLabel, termIconsProgressBar, termIconsNameLabel.Enabled);
             yield return Tuple.Create("PSFzf", psfzfNameLabel, psfzfStatusLabel, psfzfProgressBar, psfzfNameLabel.Enabled);
             yield return Tuple.Create("modern-unix-win", modernUnixNameLabel, modernUnixStatusLabel, modernUnixProgressBar, modernUnixNameLabel.Enabled);
             yield return Tuple.Create("VSCode", vscodeNameLabel, vscodeStatusLabel, vscodeProgressBar, vscodeNameLabel.Enabled);
@@ -726,12 +762,10 @@ namespace VSCodePortableLauncher
                     return 5;
                 case "Oh My Posh":
                     return 4;
-                case "Terminal-Icons":
-                    return 3;
                 case "PSFzf":
-                    return 2;
+                    return 3;
                 case "modern-unix-win":
-                    return 1;
+                    return 2;
                 default:
                     return 0;
             }
@@ -801,7 +835,7 @@ namespace VSCodePortableLauncher
             if (normalized.Equals("PowerShell 7: Upgrading first (required for modules)...", StringComparison.OrdinalIgnoreCase))
                 return "PowerShell 7: Updating first for module compatibility";
 
-            var upgradedVersionMatch = Regex.Match(normalized, @"^(PowerShell 7|Oh My Posh|Terminal-Icons|PSFzf|modern-unix-win|VS Code):\s+Upgrade completed\s+-\s+version\s+(.+)$", RegexOptions.IgnoreCase);
+            var upgradedVersionMatch = Regex.Match(normalized, @"^(PowerShell 7|Oh My Posh|PSFzf|modern-unix-win|VS Code):\s+Upgrade completed\s+-\s+version\s+(.+)$", RegexOptions.IgnoreCase);
             if (upgradedVersionMatch.Success)
                 return upgradedVersionMatch.Groups[1].Value + ": Updated to " + upgradedVersionMatch.Groups[2].Value.Trim();
 
@@ -867,6 +901,41 @@ namespace VSCodePortableLauncher
             {
                 UpdateComponentStatus(component, "Error", 0);
                 LogActivity("PowerShell 7: Error - " + ex.Message);
+                return new KeyValuePair<string, string>();
+            }
+        }
+
+        private async Task<KeyValuePair<string, string>> UpgradePythonAsync()
+        {
+            const string component = "Python";
+            try
+            {
+                string currentVersion;
+                if (!versions.TryGetValue("PYTHON_VERSION", out currentVersion))
+                    throw new InvalidDataException("Python version is missing from " + CommonHelper.RuntimeInfoFileName + ".");
+
+                string targetVersionPath = Path.Combine(pvsDir, "upgrade_python");
+                if (!File.Exists(targetVersionPath))
+                    throw new FileNotFoundException("Python update version flag was not found.", targetVersionPath);
+
+                string targetVersion = File.ReadAllText(targetVersionPath).Trim();
+                var installer = new PythonInstaller(
+                    pvsDir,
+                    (name, status, progress) => UpdateComponentStatus(component, ConvertStatus(status), progress),
+                    message => LogActivity(message));
+
+                var result = await installer.UpgradeAsync(currentVersion, targetVersion);
+                if (string.IsNullOrWhiteSpace(result.Value))
+                    throw new InvalidOperationException("Python patch update did not complete.");
+
+                UpdateComponentStatus(component, "Completed", 100);
+                LogActivity("Python: Upgrade completed - version " + result.Value);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                UpdateComponentStatus(component, "Error", 0);
+                LogActivity("Python: Error - " + ex.Message);
                 return new KeyValuePair<string, string>();
             }
         }
@@ -988,23 +1057,39 @@ namespace VSCodePortableLauncher
             return status;
         }
 
-        private void DeleteUpgradeFlags()
+        private string GetUpgradeFlagForVersionKey(string versionKey)
         {
-            var flagFiles = new[]
+            switch (versionKey)
             {
-                Path.Combine(pvsDir, "upgrade_pwsh7"),
-                Path.Combine(pvsDir, "upgrade_ohmyposh"),
-                Path.Combine(pvsDir, "upgrade_term_icons"),
-                Path.Combine(pvsDir, "upgrade_psfzf"),
-                Path.Combine(pvsDir, "upgrade_modern_unix"),
-                Path.Combine(pvsDir, "upgrade_vscode")
-            };
+                case "PWSH7_VERSION": return "upgrade_pwsh7";
+                case "PYTHON_VERSION": return "upgrade_python";
+                case "OHMYPOSH_VERSION": return "upgrade_ohmyposh";
+                case "PSFZF_VERSION": return "upgrade_psfzf";
+                case "MODERN_UNIX_WIN_VERSION": return "upgrade_modern_unix";
+                case "VSCODE_VERSION": return "upgrade_vscode";
+                default: return null;
+            }
+        }
 
-            foreach (var flag in flagFiles)
+        private void DeleteUpgradeFlags(IEnumerable<string> completedFlags)
+        {
+            foreach (string flagName in completedFlags)
             {
+                string flag = Path.Combine(pvsDir, flagName);
                 if (File.Exists(flag))
                 {
-                    File.Delete(flag);
+                    try
+                    {
+                        File.Delete(flag);
+                    }
+                    catch (IOException ex)
+                    {
+                        LogActivity("Could not remove completed update flag " + flagName + ": " + ex.Message);
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        LogActivity("Could not remove completed update flag " + flagName + ": " + ex.Message);
+                    }
                 }
             }
         }
@@ -1046,7 +1131,20 @@ namespace VSCodePortableLauncher
                 }
             }
 
-            File.WriteAllLines(pvsInfo, lines);
+            string tempPath = pvsInfo + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllLines(tempPath, lines, Encoding.UTF8);
+                if (File.Exists(pvsInfo))
+                    File.Replace(tempPath, pvsInfo, null);
+                else
+                    File.Move(tempPath, pvsInfo);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
         }
 
         private void ShowError(string message)

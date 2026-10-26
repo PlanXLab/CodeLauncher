@@ -39,20 +39,36 @@
   "terminal.integrated.shellIntegration.enabled": false,
   "terminal.integrated.minimumContrastRatio": 1,
   "terminal.integrated.env.windows": {
-    "PATH": "${execPath}\\..\\bin;${execPath}\\..\\data\\lib\\python;${execPath}\\..\\data\\lib\\python\\Scripts;${execPath}\\..\\data\\lib\\pwsh;${execPath}\\..\\data\\lib\\pwsh\\bin;${env:PATH}"
+    "PATH": "${env:VSCODE_PORTABLE}\\..\\bin;${env:VSCODE_PORTABLE}\\lib\\python;${env:VSCODE_PORTABLE}\\lib\\python\\Scripts;${env:VSCODE_PORTABLE}\\lib\\pwsh;${env:VSCODE_PORTABLE}\\lib\\pwsh\\bin;${env:PATH}"
   },
+  
+  "terminal.integrated.allowChords": false,
+  "terminal.integrated.sendKeybindingsToShell": true,
+  "terminal.integrated.commandsToSkipShell": [
+    "-workbench.action.openRecent",               // Ctrl+R (PSFzf history search)
+    "-workbench.action.quickOpen",                // Ctrl+E (line end)
+    "-workbench.action.terminal.selectAll",       // Ctrl+A (line start)
+    "-workbench.action.terminal.clear",           // Ctrl+K (delete after cursor)
+    "-workbench.action.showAllSymbols"            // Ctrl+T (PSFzf file search)
+  ],
 
   "terminal.integrated.defaultProfile.windows": "PowerShell 7 (portable)",
 
   "terminal.integrated.profiles.windows": {
     "PowerShell 7 (portable)": {
-      "path": "${execPath}\\..\\data\\lib\\pwsh\\pwsh.exe",
-      "args": ["-NoLogo"],
+      "path": "${env:VSCODE_PORTABLE}\\lib\\pwsh\\pwsh.exe",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-NoExit",
+        "-Command",
+        ". \"$env:VSCODE_PORTABLE\\lib\\pwsh\\Microsoft.PowerShell_profile.ps1\""
+      ],
       "icon": "terminal-powershell"
     }
   },
 
-  "python.defaultInterpreterPath": "${execPath}\\..\\data\\lib\\python\\python.exe",
+  "python.defaultInterpreterPath": "${env:VSCODE_PORTABLE}\\lib\\python\\python.exe",
   "python.terminal.activateEnvironment": false,
   "python.venvFolders": [],
   "python.useEnvironmentsExtension": false,

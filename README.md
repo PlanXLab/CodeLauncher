@@ -22,7 +22,7 @@ The final distributable is `CodeLauncher.exe` only. `launcher.exe` is embedded i
 - Python Embedded
 - PowerShell 7
 - Oh My Posh
-- PowerShell modules: `Terminal-Icons`, `PSFzf`, `modern-unix-win`
+- PowerShell modules: `PSFzf`, `modern-unix-win`
 - Fonts: `0xProto Nerd Font`, `DalseoHealing`
 - VS Code extensions:
   - `teabyii.ayu`
@@ -32,10 +32,15 @@ The final distributable is `CodeLauncher.exe` only. `launcher.exe` is embedded i
   - `KevinRose.vsc-python-indent`
   - `usernamehw.errorlens`
 
+Oh My Posh is initialized with the bundled theme at `data\lib\pwsh\ohmyposh\themes\tos-therm.omp.json` using its explicit `--config` option. The launcher migrates existing `tos-term.omp.json` installations to this filename.
+
+`Terminal-Icons` is not installed or updated; the portable profile uses `lsd` for directory listings and icons. Existing `Terminal-Icons` files are left in place and are not imported.
+
 Installer UI behavior:
 
 - Default installation path is `C:\VSCode`
-- The Python version field can be left empty to install the latest supported version
+- Enter a Python `3.x` major.minor version, or leave the field empty for the latest Windows embeddable release
+- CodeLauncher verifies the embeddable package before installation; if it is unavailable, it asks for another version before installing any packages
 - Pressing `Enter` in the Python version field starts installation immediately
 - The UI provides overall progress, per-component progress, and a filtered Key Events log
 
@@ -44,15 +49,19 @@ Installer UI behavior:
 `launcher.exe` is the runtime entry point for an installed environment.
 
 - Launches `Code.exe` in portable mode
-- Checks component versions in the background
+- Reconciles desktop and Start Menu shortcuts after the folder is moved
+- Registers the bundled fonts on each PC when needed
+- Checks for updates before launching VS Code
 - Creates `upgrade_*` flag files when updates are available
-- Shows the upgrade UI on the next run and upgrades only the required individual components
+- Shows the update prompt during the same launch; skipping or completing updates closes the prompt and starts VS Code
+
+Move the entire installation folder to another PC, then run `launcher.exe` once. CodeLauncher refreshes shortcut targets and registers the bundled fonts for that PC; VS Code, Python, PowerShell, extensions, modules, and PowerShell command history remain under the portable folder. PowerShell history is stored at `data\user-data\PowerShell\History.txt`. If an update check is unavailable, CodeLauncher reports the issue and continues with the installed versions.
 
 Upgradeable components:
 
+- Python patch releases with a Windows embeddable package (the installed major.minor version is preserved)
 - PowerShell 7
 - Oh My Posh
-- Terminal-Icons
 - PSFzf
 - modern-unix-win
 - VS Code
@@ -95,7 +104,7 @@ A typical installed layout looks like this:
 1. Download `CodeLauncher.exe` from GitHub Releases.
 2. Run it and choose the installation path and Python version.
 3. After installation, launch VS Code through `launcher.exe` or the created shortcut.
-4. From that point on, `launcher.exe` handles background version checks and upgrade entry.
+4. From that point on, `launcher.exe` checks for updates and handles upgrades.
 
 ### Maintenance Mode
 
@@ -186,6 +195,8 @@ The integrated terminal runs **PowerShell 7** with a custom profile that provide
 | `↑` / `↓` | Navigate history predictions (inline list view) |
 
 ### Running Python Scripts
+
+The portable Python runtime enables `site` in its `python3xy._pth` configuration and installs a small site hook. It adds the current working directory and the launched script's directory to `sys.path`, so modules in the active workspace can be imported without a machine-wide `PYTHONPATH`.
 
 Python scripts can be run directly from the terminal without typing `python`:
 

@@ -48,7 +48,6 @@ namespace VSCodePortableInstaller
         };
         
         // URLs
-        private const string PYTHON_DOWNLOADS_URL = "https://www.python.org/downloads/windows/";
         private const string PYTHON_FTP_BASE = "https://www.python.org/ftp/python/";
         private const string BOOTSTRAP_PIP_URL = "https://bootstrap.pypa.io/get-pip.py";
         private const string VSCODE_LATEST_DOWNLOAD_URL = "https://update.code.visualstudio.com/latest/win32-x64-archive/stable";
@@ -77,8 +76,10 @@ namespace VSCodePortableInstaller
         private int completedComponents;
         private bool installCompleted;
         private bool installStarted;
+        private bool pythonVersionCheckInProgress;
         private bool pwsh7Failed;
         private bool criticalFailed;
+        private string resolvedPythonVersion;
         private volatile bool vscodeDownloadCompleted;
         private System.Diagnostics.Stopwatch installTimer;
         private DateTime installStartTime;
@@ -106,6 +107,20 @@ namespace VSCodePortableInstaller
             System.Net.ServicePointManager.Expect100Continue = false;
 
             InitializeComponent();
+            CodeLauncherTheme.Apply(
+                this,
+                headerPanel,
+                headerTitleLabel,
+                headerSubLabel,
+                label1,
+                settingsPanel,
+                separatorPanel,
+                progressPanel,
+                componentTable,
+                activityLog,
+                logHeaderLabel,
+                installButton,
+                cancelButton);
 
             this.AcceptButton = installButton;
             installPathTextBox.KeyDown += InputField_KeyDown;
@@ -232,7 +247,7 @@ namespace VSCodePortableInstaller
             InstallButton_Click(installButton, EventArgs.Empty);
         }
 
-        private void InstallButton_Click(object sender, EventArgs e)
+        private async void InstallButton_Click(object sender, EventArgs e)
         {
             // If installation completed and no failures, Exit button closes the form
             if (installCompleted && !pwsh7Failed && !criticalFailed)
@@ -255,7 +270,7 @@ namespace VSCodePortableInstaller
                 return;
             }
 
-            if (installStarted)
+            if (installStarted || pythonVersionCheckInProgress)
                 return;
 
             // New behavior: if form was collapsed at start, expand to full UI when Install is pressed
@@ -280,6 +295,44 @@ namespace VSCodePortableInstaller
             if (!ValidatePythonVersion(pythonVersionInput))
                 return;
 
+            pythonVersionCheckInProgress = true;
+            CodeLauncherTheme.StyleBusyButton(installButton, "Checking Python...");
+            installPathTextBox.Enabled = false;
+            browseButton.Enabled = false;
+            pythonVersionTextBox.Enabled = false;
+            cancelButton.Enabled = false;
+
+            try
+            {
+                bool pythonVersionResolved = await ResolvePythonVersionSelectionAsync(pythonVersionInput);
+                if (IsDisposed || Disposing)
+                    return;
+
+                if (!pythonVersionResolved)
+                {
+                    RestorePreInstallControlsAfterPythonCheck();
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (IsDisposed || Disposing)
+                    return;
+
+                LogActivity("Python: Embeddable package check failed - " + ex.Message);
+                MessageBox.Show(
+                    this,
+                    "CodeLauncher could not verify the selected Python embeddable package. No packages were installed.\n\n" +
+                    ex.Message + "\n\nCheck your internet connection and try again.",
+                    "Python Version Check Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                RestorePreInstallControlsAfterPythonCheck();
+                return;
+            }
+
+            pythonVersionCheckInProgress = false;
+            cancelButton.Enabled = true;
             installDir = path;
             installStarted = true;
 
@@ -307,10 +360,7 @@ namespace VSCodePortableInstaller
 
             // Start installation
             var token = installCancellationSource.Token;
-            Task.Run(async () =>
-            {
-                await PerformInstallation(token);
-            }, token);
+            await Task.Run(() => PerformInstallation(token));
         }
 
         private void CancelButton_Click(object sender, EventArgs e)
@@ -752,8 +802,7 @@ namespace VSCodePortableInstaller
                 return true;
 
             // Must be in format "3.12", "3.11", etc. (major.minor)
-            var match = Regex.Match(version, @"^3\.\d+$");
-            if (!match.Success)
+            if (!Regex.IsMatch(version, @"^3\.\d+$"))
             {
                 MessageBox.Show(
                     "Invalid Python version format.\n\n" +
@@ -767,74 +816,129 @@ namespace VSCodePortableInstaller
                 return false;
             }
 
-            // Check if version exists online (with timeout)
-            try
-            {
-                Cursor.Current = Cursors.WaitCursor;
-                
-                // Use Task.Run to avoid deadlock on UI thread
-                var checkTask = Task.Run(async () => await CheckPythonVersionExists(version));
-                
-                // Wait with timeout (5 seconds)
-                if (checkTask.Wait(TimeSpan.FromSeconds(5)))
-                {
-                    if (!checkTask.Result)
-                    {
-                        MessageBox.Show(
-                            "Python version " + version + " not found.\n\n" +
-                            "Please check https://www.python.org/downloads/ for available versions.\n\n" +
-                            "Common versions: 3.13, 3.12, 3.11, 3.10",
-                            "Python Version Not Found",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Warning);
-                        Cursor.Current = Cursors.Default;
-                        return false;
-                    }
-                }
-                else
-                {
-                    // Timeout - allow to proceed (will check again during installation)
-                    LogActivity("Python version check timeout - proceeding anyway");
-                }
-                
-                Cursor.Current = Cursors.Default;
-            }
-            catch (Exception ex)
-            {
-                Cursor.Current = Cursors.Default;
-                LogActivity("Python version check error: " + ex.Message);
-                // Network error - allow to proceed (will fail later with better error)
-            }
-
             return true;
         }
 
-        private async Task<bool> CheckPythonVersionExists(string majorMinor)
+        private async Task<bool> ResolvePythonVersionSelectionAsync(string requestedVersion)
         {
-            try
+            while (true)
             {
-                System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)3072;
-                
-                var handler = new HttpClientHandler
+                if (!ValidatePythonVersion(requestedVersion))
                 {
-                    AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
-                };
-                
-                using (var client = new HttpClient(handler))
-                {
-                    client.Timeout = TimeSpan.FromSeconds(5); // Quick check
-                    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                    string html = await client.GetStringAsync(PYTHON_DOWNLOADS_URL);
-                    
-                    // Check if the version appears in the downloads page
-                    var pattern = @"Python\s+" + majorMinor.Replace(".", @"\.") + @"\.\d+";
-                    return Regex.IsMatch(html, pattern);
+                    requestedVersion = PromptForPythonVersion(
+                        requestedVersion,
+                        "Enter a Python major.minor version such as 3.12, or leave the field empty for the latest available version.");
+                    if (requestedVersion == null)
+                        return false;
+                    continue;
                 }
+
+                string lookupVersion = string.IsNullOrWhiteSpace(requestedVersion) ? "latest" : requestedVersion;
+                LogActivity("Python: Checking Windows embeddable package availability for " + lookupVersion + "...");
+                string availableVersion = await CommonHelper.GetLatestPythonPatchVersionAsync(lookupVersion);
+                if (IsDisposed || Disposing)
+                    return false;
+
+                if (!string.IsNullOrWhiteSpace(availableVersion))
+                {
+                    resolvedPythonVersion = availableVersion;
+                    pythonVersionInput = requestedVersion;
+                    pythonVersionTextBox.Text = requestedVersion;
+                    LogActivity("Python: Verified Windows embeddable package " + availableVersion);
+                    return true;
+                }
+
+                string requestedLabel = lookupVersion == "latest" ? "the latest Python 3 release" : "Python " + lookupVersion;
+                LogActivity("Python: No Windows embeddable package found for " + lookupVersion);
+                requestedVersion = PromptForPythonVersion(
+                    requestedVersion,
+                    "No Windows embeddable package was found for " + requestedLabel + ".\r\n" +
+                    "Enter another Python 3 major.minor version, or leave the field empty for the latest available package.");
+                if (requestedVersion == null)
+                    return false;
             }
-            catch
+        }
+
+        private string PromptForPythonVersion(string currentVersion, string message)
+        {
+            using (var prompt = new Form())
             {
-                return true; // Network error - assume valid (will check again during installation)
+                prompt.Text = "Select Python Version";
+                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
+                prompt.StartPosition = FormStartPosition.CenterParent;
+                prompt.MinimizeBox = false;
+                prompt.MaximizeBox = false;
+                prompt.ShowInTaskbar = false;
+                prompt.ClientSize = new Size(430, 158);
+                prompt.BackColor = CodeLauncherTheme.Background;
+                prompt.ForeColor = CodeLauncherTheme.TextPrimary;
+                prompt.Font = Font;
+
+                var messageLabel = new Label
+                {
+                    AutoSize = false,
+                    Location = new Point(12, 12),
+                    Size = new Size(406, 55),
+                    Text = message,
+                    ForeColor = CodeLauncherTheme.TextPrimary,
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+                var versionTextBox = new TextBox
+                {
+                    Location = new Point(12, 75),
+                    Size = new Size(406, 23),
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = CodeLauncherTheme.Surface,
+                    ForeColor = CodeLauncherTheme.TextPrimary,
+                    Text = string.Equals(currentVersion, "latest", StringComparison.OrdinalIgnoreCase)
+                        ? string.Empty
+                        : currentVersion ?? string.Empty
+                };
+                var checkButton = new Button
+                {
+                    Location = new Point(236, 116),
+                    Size = new Size(88, 28),
+                    Text = "Check",
+                    DialogResult = DialogResult.OK
+                };
+                var cancelButton = new Button
+                {
+                    Location = new Point(330, 116),
+                    Size = new Size(88, 28),
+                    Text = "Cancel",
+                    DialogResult = DialogResult.Cancel
+                };
+
+                prompt.Controls.Add(messageLabel);
+                prompt.Controls.Add(versionTextBox);
+                prompt.Controls.Add(checkButton);
+                prompt.Controls.Add(cancelButton);
+                CodeLauncherTheme.StylePrimaryButton(checkButton);
+                CodeLauncherTheme.StyleSecondaryButton(cancelButton);
+                prompt.AcceptButton = checkButton;
+                prompt.CancelButton = cancelButton;
+                prompt.Shown += (sender, args) =>
+                {
+                    versionTextBox.Focus();
+                    versionTextBox.SelectAll();
+                };
+
+                return prompt.ShowDialog(this) == DialogResult.OK
+                    ? versionTextBox.Text.Trim()
+                    : null;
             }
+        }
+
+        private void RestorePreInstallControlsAfterPythonCheck()
+        {
+            pythonVersionCheckInProgress = false;
+            installPathTextBox.Enabled = true;
+            browseButton.Enabled = true;
+            pythonVersionTextBox.Enabled = true;
+            cancelButton.Enabled = true;
+            RestoreInstallButtonStyle("Install");
+            pythonVersionTextBox.Focus();
+            pythonVersionTextBox.SelectAll();
         }
 
         private void ShowProgressUI()
@@ -863,24 +967,16 @@ namespace VSCodePortableInstaller
 
             try
             {
-                installButton.Enabled = false;
-                installButton.Text = "Installing...";
-                
-                // Clear disabled appearance: gray background, dark gray text, wait cursor
-                installButton.BackColor = Color.FromArgb(200, 200, 200);
-                installButton.ForeColor = Color.FromArgb(100, 100, 100);
-                installButton.FlatStyle = FlatStyle.Flat;
-                installButton.FlatAppearance.BorderSize = 0;
-                installButton.Cursor = Cursors.WaitCursor;
+                CodeLauncherTheme.StyleBusyButton(installButton, "Installing...");
             }
             catch { }
         }
 
-        private void RestoreInstallButtonStyle(string text = "Install", Color? backColor = null, Color? foreColor = null)
+        private void RestoreInstallButtonStyle(string text = "Install")
         {
             if (InvokeRequired)
             {
-                Invoke(new Action(() => RestoreInstallButtonStyle(text, backColor, foreColor)));
+                Invoke(new Action(() => RestoreInstallButtonStyle(text)));
                 return;
             }
 
@@ -888,13 +984,7 @@ namespace VSCodePortableInstaller
             {
                 installButton.Enabled = true;
                 installButton.Text = text;
-                
-                // Restore active button style
-                installButton.BackColor = backColor ?? Color.FromArgb(0, 120, 212);
-                installButton.ForeColor = foreColor ?? Color.White;
-                installButton.FlatStyle = FlatStyle.Flat;
-                installButton.FlatAppearance.BorderSize = 0;
-                installButton.Cursor = Cursors.Hand;
+                CodeLauncherTheme.StylePrimaryButton(installButton);
             }
             catch { }
         }
@@ -1000,7 +1090,7 @@ namespace VSCodePortableInstaller
                 }
                 
                 // If critical components failed, don't proceed with final configuration
-                if (hasCriticalError && !pwsh7Failed)
+                if (hasCriticalError)
                 {
                     UpdateCurrentTask("⚠ Installation incomplete - " + failedCount + " component(s) failed");
                     LogActivity("Installation incomplete: " + failedCount + " critical component(s) failed");
@@ -1010,7 +1100,7 @@ namespace VSCodePortableInstaller
                     installCompleted = true;
                     Invoke(new Action(() =>
                     {
-                        RestoreInstallButtonStyle("Retry", Color.FromArgb(220, 80, 20), Color.White);
+                        RestoreInstallButtonStyle("Retry");
                         // Keep Cancel button enabled so user can always exit
                     }));
                     return;
@@ -1049,11 +1139,11 @@ namespace VSCodePortableInstaller
                 {
                     if (pwsh7Failed)
                     {
-                        RestoreInstallButtonStyle("Retry PowerShell 7", Color.FromArgb(220, 80, 20), Color.White);
+                        RestoreInstallButtonStyle("Retry PowerShell 7");
                     }
                     else
                     {
-                        RestoreInstallButtonStyle("Exit", Color.FromArgb(0, 120, 215), Color.White);
+                        RestoreInstallButtonStyle("Exit");
                     }
                     cancelButton.Enabled = false;
                 }));
@@ -1134,18 +1224,18 @@ namespace VSCodePortableInstaller
             { displayStatus = "Waiting"; category = "Waiting"; }
             
             // Color by category
-            Color statusColor = Color.FromArgb(160, 160, 160);
+            Color statusColor = CodeLauncherTheme.TextTertiary;
             
             if (category == "Waiting")
-                statusColor = Color.FromArgb(160, 160, 160);
+                statusColor = CodeLauncherTheme.TextTertiary;
             else if (category == "Downloading")
-                statusColor = Color.FromArgb(0, 120, 212);
+                statusColor = CodeLauncherTheme.Accent;
             else if (category == "Working")
-                statusColor = Color.FromArgb(0, 120, 212);
+                statusColor = CodeLauncherTheme.Accent;
             else if (category == "Completed")
-                statusColor = Color.FromArgb(16, 124, 16);
+                statusColor = CodeLauncherTheme.Success;
             else if (category == "Failed")
-                statusColor = Color.FromArgb(196, 43, 28);
+                statusColor = CodeLauncherTheme.Error;
             
             // Show simplified status text
             statusLabel.Text = displayStatus;
@@ -1283,18 +1373,19 @@ namespace VSCodePortableInstaller
             
             // Skip UI update if fileOnly is true (performance optimization)
             if (fileOnly) return;
-            
-            if (InvokeRequired)
-            {
-                Invoke(new Action(() => LogActivity(message, false))); // Don't pass fileOnly in Invoke
-                return;
-            }
 
             string uiMessage = SimplifyActivityMessage(message);
             if (string.IsNullOrEmpty(uiMessage))
                 return;
 
-            AppendActivityLogEntry("[" + timestamp + "] " + uiMessage);
+            string uiEntry = "[" + timestamp + "] " + uiMessage;
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => AppendActivityLogEntry(uiEntry)));
+                return;
+            }
+
+            AppendActivityLogEntry(uiEntry);
         }
 
         private string FormatElapsedForUi(TimeSpan elapsed)
@@ -1589,7 +1680,7 @@ namespace VSCodePortableInstaller
                         LogActivity("PowerShell 7: Retry failed");
                         Invoke(new Action(() =>
                         {
-                            RestoreInstallButtonStyle("Retry PowerShell 7", Color.FromArgb(220, 80, 20), Color.White);
+                            RestoreInstallButtonStyle("Retry PowerShell 7");
                         }));
                     }
                     else
@@ -1598,7 +1689,7 @@ namespace VSCodePortableInstaller
                         UpdateCurrentTask("✓ All components installed successfully!");
                         Invoke(new Action(() =>
                         {
-                            RestoreInstallButtonStyle("Exit", Color.FromArgb(0, 120, 215), Color.White);
+                            RestoreInstallButtonStyle("Exit");
                         }));
                     }
                 }
@@ -1607,7 +1698,7 @@ namespace VSCodePortableInstaller
                     LogActivity("PowerShell 7: Retry error - " + ex.Message);
                     Invoke(new Action(() =>
                     {
-                        RestoreInstallButtonStyle("Retry PowerShell 7", Color.FromArgb(220, 80, 20), Color.White);
+                        RestoreInstallButtonStyle("Retry PowerShell 7");
                     }));
                 }
             });
@@ -1688,8 +1779,9 @@ namespace VSCodePortableInstaller
                     else if (!allVersions.ContainsKey("PYTHON_VERSION"))
                     {
                         // python.exe AND pip.cmd both exist on disk — base + pip already complete
-                        allVersions["PYTHON_VERSION"] = "installed";
-                        LogActivity("Python: Already installed on disk (python.exe + pip.cmd), skipping re-install");
+                        string detectedPythonVersion = DetectInstalledPythonVersion();
+                        allVersions["PYTHON_VERSION"] = string.IsNullOrEmpty(detectedPythonVersion) ? "unknown" : detectedPythonVersion;
+                        LogActivity("Python: Already installed on disk (python.exe + pip.cmd), skipping re-install; version " + allVersions["PYTHON_VERSION"]);
                         UpdateComponentStatus("Python", "✓ Completed", 100);
                     }
                     
@@ -1715,7 +1807,7 @@ namespace VSCodePortableInstaller
                         installCompleted = true;
                         Invoke(new Action(() =>
                         {
-                            RestoreInstallButtonStyle("Retry", Color.FromArgb(220, 80, 20), Color.White);
+                            RestoreInstallButtonStyle("Retry");
                         }));
                         return;
                     }
@@ -1749,7 +1841,7 @@ namespace VSCodePortableInstaller
                     installCompleted = true;
                     Invoke(new Action(() =>
                     {
-                        RestoreInstallButtonStyle("Exit", Color.FromArgb(46, 125, 50), Color.White);
+                        RestoreInstallButtonStyle("Exit");
                     }));
                 }
                 catch (Exception ex)
@@ -1760,7 +1852,7 @@ namespace VSCodePortableInstaller
                     installCompleted = true;
                     Invoke(new Action(() =>
                     {
-                        RestoreInstallButtonStyle("Retry", Color.FromArgb(220, 80, 20), Color.White);
+                        RestoreInstallButtonStyle("Retry");
                     }));
                 }
             });
@@ -2011,7 +2103,6 @@ namespace VSCodePortableInstaller
             var parallelTasks = new List<Task<KeyValuePair<string, string>>>();
 
             parallelTasks.Add(InstallOhMyPosh(cancellationToken));
-            parallelTasks.Add(InstallModule("Terminal-Icons", "TERMINAL_ICONS_VERSION", cancellationToken));
             parallelTasks.Add(InstallModule("PSFzf", "PSFZF_VERSION", cancellationToken));
             parallelTasks.Add(InstallModule("modern-unix-win", "MODERN_UNIX_WIN_VERSION", cancellationToken));
 
@@ -2218,6 +2309,48 @@ namespace VSCodePortableInstaller
             return "latest";
         }
 
+        private string DetectInstalledPythonVersion()
+        {
+            string pythonExe = Path.Combine(installDir, "data", "lib", "python", "python.exe");
+            if (!File.Exists(pythonExe))
+                return "";
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = pythonExe,
+                    Arguments = "--version",
+                    WorkingDirectory = Path.GetDirectoryName(pythonExe),
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using (var process = Process.Start(startInfo))
+                {
+                    Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
+                    Task<string> errorTask = process.StandardError.ReadToEndAsync();
+                    if (!process.WaitForExit(5000))
+                    {
+                        process.Kill();
+                        process.WaitForExit();
+                        LogActivity("Python: Version detection timed out.");
+                        return "";
+                    }
+
+                    var match = Regex.Match(outputTask.Result + " " + errorTask.Result, @"Python\s+(\d+\.\d+\.\d+)", RegexOptions.IgnoreCase);
+                    return match.Success ? match.Groups[1].Value : "";
+                }
+            }
+            catch (Exception ex)
+            {
+                LogActivity("Python: Version detection failed - " + ex.Message);
+                return "";
+            }
+        }
+
         private async Task<Dictionary<string, string>> InstallVSCodeExtensionsAsync(System.Threading.CancellationToken cancellationToken)
         {
             var versions = new Dictionary<string, string>();
@@ -2263,19 +2396,10 @@ namespace VSCodePortableInstaller
 
                 string requestedVersion = string.IsNullOrEmpty(pythonVersionInput) ? "latest" : pythonVersionInput;
                 UpdateComponentStatus(componentName, "Requesting: " + requestedVersion, 7);
+                if (string.IsNullOrWhiteSpace(resolvedPythonVersion))
+                    throw new InvalidOperationException("The Python embeddable package was not validated before installation.");
 
-                string version = await GetLatestPythonVersion(requestedVersion);
-                if (string.IsNullOrEmpty(version))
-                {
-                    UpdateComponentStatus(componentName, "⚠ Version not found: " + requestedVersion, 0);
-                    return versions;
-                }
-
-                Invoke(new Action(() =>
-                {
-                    if (pythonVersionTextBox != null)
-                        pythonVersionTextBox.Text = version;
-                }));
+                string version = resolvedPythonVersion;
 
                 UpdateComponentStatus(componentName, "Found: " + version, 9);
                 LogActivity("Python: Found version " + version);
@@ -2313,26 +2437,6 @@ namespace VSCodePortableInstaller
 
                 UpdateComponentStatus(componentName, "Configuring...", 92);
 
-                string shortVer = version.Replace(".", "");
-                if (shortVer.Length > 3)
-                    shortVer = shortVer.Substring(0, 3);
-
-                string pthFile = Path.Combine(pythonDir, "python" + shortVer + "._pth");
-                if (File.Exists(pthFile))
-                {
-                    // Read as UTF-8 (auto-detects and strips BOM if present)
-                    string pthContent = File.ReadAllText(pthFile, Encoding.UTF8);
-                    // Defensive: strip any leftover BOM character before regex
-                    if (pthContent.Length > 0 && pthContent[0] == '\uFEFF')
-                        pthContent = pthContent.Substring(1);
-                    string newContent = Regex.Replace(pthContent, @"^#\s*import\s+site\b", "import site", RegexOptions.Multiline | RegexOptions.IgnoreCase);
-                    // CRITICAL: Python embedded ._pth parser does NOT strip BOM.
-                    // A BOM on the first line corrupts the python<ver>.zip path,
-                    // breaking 'encodings' module discovery and aborting Python init.
-                    // Always rewrite without BOM to guarantee correctness.
-                    File.WriteAllText(pthFile, newContent, new UTF8Encoding(false));
-                }
-
                 string pythonExe = Path.Combine(pythonDir, "python.exe");
                 if (!File.Exists(pythonExe))
                 {
@@ -2340,6 +2444,8 @@ namespace VSCodePortableInstaller
                     LogActivity("Python: FAILED - python.exe not found after extraction");
                     return versions;
                 }
+
+                CommonHelper.EnsureEmbeddedPythonWorkspaceImports(pythonDir);
 
                 if (Directory.Exists(tempDir))
                     Directory.Delete(tempDir, true);
@@ -2755,24 +2861,27 @@ namespace VSCodePortableInstaller
                 string themesDir = Path.Combine(pwshOmpDir, "themes");
                 Directory.CreateDirectory(themesDir);
 
-                string themeContent = ReadEmbeddedResource("tos-term.omp.json");
+                string themeContent = ReadEmbeddedResource("tos-therm.omp.json");
                 if (!string.IsNullOrEmpty(themeContent))
                 {
-                    // Create actual theme (original)
-                    string themePath = Path.Combine(themesDir, "tos-term.omp.json");
-                    File.WriteAllText(themePath, themeContent, Encoding.UTF8);
+                    themeContent = themeContent.TrimStart('\uFEFF');
+                    var utf8WithoutBom = new UTF8Encoding(false);
+                    string themePath = Path.Combine(themesDir, "tos-therm.omp.json");
+                    File.WriteAllText(themePath, themeContent, utf8WithoutBom);
                     LogActivity("Oh My Posh: Theme installed");
                     
-                    // Create origin backup (copy)
                     string originDir = Path.Combine(installDir, "data", "lib", "origin");
                     Directory.CreateDirectory(originDir);
-                    string originPath = Path.Combine(originDir, "tos-term.omp.json");
-                    File.WriteAllText(originPath, themeContent, Encoding.UTF8);
+                    string originPath = Path.Combine(originDir, "tos-therm.omp.json");
+                    File.WriteAllText(originPath, themeContent, utf8WithoutBom);
                 }
-                
-                await Task.CompletedTask;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogActivity("Oh My Posh: Theme installation failed - " + ex.Message);
+            }
+
+            await Task.CompletedTask;
         }
 
         private async Task CreatePowerShellProfile()
@@ -3545,92 +3654,6 @@ namespace VSCodePortableInstaller
             catch { }
         }
 
-        private async Task<string> GetLatestPythonVersion(string majorMinor)
-        {
-            try
-            {
-                LogActivity("Python: Fetching version info from python.org...");
-                
-                // Enable TLS 1.2
-                System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)3072;
-                
-                // Download HTML content with automatic decompression
-                string p;
-                var handler = new HttpClientHandler
-                {
-                    AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
-                };
-                
-                using (var client = new HttpClient(handler))
-                {
-                    client.Timeout = TimeSpan.FromSeconds(30); // 30 second timeout
-                    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                    p = await client.GetStringAsync(PYTHON_DOWNLOADS_URL);
-                }
-                
-                LogActivity("Python: Downloaded version info page (" + p.Length + " bytes)");
-
-                // Split into lines
-                var lines = p.Split('\n');
-
-                if (majorMinor == "latest" || string.IsNullOrEmpty(majorMinor))
-                {
-                    LogActivity("Python: Looking for latest Python 3 release...");
-                    // Find "Latest Python 3 Release"
-                    foreach (var line in lines)
-                    {
-                        if (line.Contains("Latest Python 3 Release"))
-                        {
-                            var match = Regex.Match(line, @"(\d+\.\d+\.\d+)");
-                            if (match.Success)
-                            {
-                                string foundVersion = match.Groups[1].Value;
-                                LogActivity("Python: Found latest version " + foundVersion);
-                                return foundVersion;
-                            }
-                        }
-                    }
-                    LogActivity("Python: WARNING - Could not find latest Python 3 release in downloads page");
-                }
-                else
-                {
-                    LogActivity("Python: Looking for version " + majorMinor + "...");
-                    // Find specific version (e.g., 3.12)
-                    // PowerShell: $prefix = $LatestOnly + "\."
-                    var prefix = majorMinor + @"\.";
-                    // PowerShell: if ($line -match "Python\s+$prefix\d+")
-                    var pattern1 = @"Python\s+" + prefix + @"\d+";
-                    // PowerShell: if ($line -match "Python\s+($prefix\d+)")
-                    var pattern2 = @"Python\s+(" + prefix + @"\d+)";
-                    
-                    foreach (var line in lines)
-                    {
-                        if (Regex.IsMatch(line, pattern1))
-                        {
-                            var match = Regex.Match(line, pattern2);
-                            if (match.Success)
-                            {
-                                string foundVersion = match.Groups[1].Value;
-                                LogActivity("Python: Found version " + foundVersion);
-                                return foundVersion;
-                            }
-                        }
-                    }
-                    LogActivity("Python: WARNING - Version " + majorMinor + " not found in downloads page");
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log error with full details
-                LogActivity("Python: ERROR fetching version info - " + ex.GetType().Name + ": " + ex.Message);
-                if (ex.InnerException != null)
-                    LogActivity("Python: Inner exception - " + ex.InnerException.Message);
-            }
-            
-            LogActivity("Python: Returning empty version (failed to detect)");
-            return "";
-        }
-
         private async Task DownloadFileWithProgress(HttpClient client, string url, string destinationPath,
             string componentName, int startProgress, int endProgress, System.Threading.CancellationToken cancellationToken)
         {
@@ -3715,191 +3738,78 @@ namespace VSCodePortableInstaller
             }
         }
 
-        private async Task ExtractZipWithProgress(string zipPath, string extractPath,
+        private Task ExtractZipWithProgress(string zipPath, string extractPath,
             string componentName, int startProgress, int endProgress, System.Threading.CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
-            {
-                using (var archive = ZipFile.OpenRead(zipPath))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    int totalEntries = archive.Entries.Count;
-                    int processedEntries = 0;
-                    int lastReportedProgress = startProgress;
-                    var extractionErrors = new List<string>();
-                    var errorLock = new object();
-
-                    var entries = archive.Entries.ToList();
-                    
-                    // Create base directory
-                    Directory.CreateDirectory(extractPath);
-                    
-                    // First pass: Create all directories
-                    foreach (var entry in entries.Where(e => string.IsNullOrEmpty(e.Name)))
-                    {
-                        string destPath = Path.Combine(extractPath, entry.FullName);
-                        try
-                        {
-                            Directory.CreateDirectory(destPath);
-                        }
-                        catch { }
-                    }
-
-                    // Second pass: Extract files
-                    var fileEntries = entries.Where(e => !string.IsNullOrEmpty(e.Name)).ToList();
-                    
-                    // Use parallel extraction for large archives (> 100 files), sequential for small ones
-                    if (fileEntries.Count > 100)
-                    {
-                        var lockObj = new object();
-                        
-                        // Extract to memory first, then write in parallel (thread-safe)
-                        System.Threading.Tasks.Parallel.ForEach(fileEntries, new System.Threading.Tasks.ParallelOptions { CancellationToken = cancellationToken }, entry =>
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            try
-                            {
-                                byte[] buffer;
-                                
-                                // Read from archive with lock (ZipArchive is not thread-safe)
-                                lock (archive)
-                                {
-                                    using (var entryStream = entry.Open())
-                                    using (var ms = new System.IO.MemoryStream())
-                                    {
-                                        entryStream.CopyTo(ms, 131072); // 128KB buffer for faster extraction
-                                        buffer = ms.ToArray();
-                                    }
-                                }
-                                
-                                // Write to disk (can be done in parallel)
-                                string destPath = Path.Combine(extractPath, entry.FullName);
-                                string destDir = Path.GetDirectoryName(destPath);
-                                Directory.CreateDirectory(destDir);
-                                
-                                File.WriteAllBytes(destPath, buffer);
-
-                                lock (lockObj)
-                                {
-                                    processedEntries++;
-                                    var progressPercentage = (int)((double)processedEntries / totalEntries * 100);
-                                    var currentProgress = startProgress + (int)((endProgress - startProgress) * (progressPercentage / 100.0));
-
-                                    if (currentProgress > lastReportedProgress)
-                                    {
-                                        UpdateComponentStatus(componentName, "Extracting...", currentProgress);
-                                        lastReportedProgress = currentProgress;
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                LogActivity(componentName + ": Failed to extract " + entry.FullName + " - " + ex.Message);
-                                lock (errorLock)
-                                {
-                                    extractionErrors.Add(entry.FullName + ": " + ex.Message);
-                                }
-                            }
-                        });
-                    }
-                    else
-                    {
-                        // Sequential extraction for small archives
-                        foreach (var entry in fileEntries)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            try
-                            {
-                                string destPath = Path.Combine(extractPath, entry.FullName);
-                                string destDir = Path.GetDirectoryName(destPath);
-                                Directory.CreateDirectory(destDir);
-                                entry.ExtractToFile(destPath, true);
-
-                                processedEntries++;
-                                var progressPercentage = (int)((double)processedEntries / totalEntries * 100);
-                                var currentProgress = startProgress + (int)((endProgress - startProgress) * (progressPercentage / 100.0));
-
-                                if (currentProgress > lastReportedProgress)
-                                {
-                                    UpdateComponentStatus(componentName, "Extracting...", currentProgress);
-                                    lastReportedProgress = currentProgress;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                LogActivity(componentName + ": Failed to extract " + entry.FullName + " - " + ex.Message);
-                                lock (errorLock)
-                                {
-                                    extractionErrors.Add(entry.FullName + ": " + ex.Message);
-                                }
-                            }
-                        }
-                    }
-
-                    if (extractionErrors.Count > 0)
-                    {
-                        throw new Exception(componentName + " extraction failed for " + extractionErrors.Count + " entries. First error: " + extractionErrors[0]);
-                    }
-                }
-            });
+            return CommonHelper.ExtractZipWithProgressAsync(
+                zipPath,
+                extractPath,
+                componentName,
+                startProgress,
+                endProgress,
+                progress => UpdateComponentStatus(componentName, "Extracting...", progress),
+                message => LogActivity(message),
+                cancellationToken);
         }
 
         private async Task CreatePvsInfo(Dictionary<string, string> versions)
         {
+            UpdateCurrentTask("Creating codelauncher.info...");
+            LogActivity("Creating codelauncher.info file...");
+                
+            string pvsInfo = Path.Combine(installDir, CommonHelper.RuntimeInfoFileName);
+            var lines = new List<string>();
+                
+            lines.Add("INSTALL_PATH=" + installDir);
+            lines.Add("INSTALL_HOST_MACHINE=" + Environment.MachineName);
+            lines.Add("INSTALL_USER_DESKTOP=" + Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
+            lines.Add("INSTALL_START_MENU=" + Environment.GetFolderPath(Environment.SpecialFolder.Programs));
+                
+            string[] order = {
+                "PWSH7_VERSION",
+                "OHMYPOSH_VERSION",
+                "PSFZF_VERSION",
+                "MODERN_UNIX_WIN_VERSION",
+                "VSCODE_VERSION",
+                "PYTHON_VERSION"
+            };
+                
+            foreach (var key in order)
+            {
+                if (versions.ContainsKey(key))
+                    lines.Add(key + "=" + versions[key]);
+            }
+
+            string tempPath = pvsInfo + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
-                UpdateCurrentTask("Creating codelauncher.info...");
-                LogActivity("Creating codelauncher.info file...");
-                
-                string pvsInfo = Path.Combine(installDir, CommonHelper.RuntimeInfoFileName);
-                var lines = new List<string>();
-                
-                lines.Add("INSTALL_PATH=" + installDir);
-                lines.Add("INSTALL_HOST_MACHINE=" + Environment.MachineName);
-                lines.Add("INSTALL_USER_DESKTOP=" + Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
-                lines.Add("INSTALL_START_MENU=" + Environment.GetFolderPath(Environment.SpecialFolder.Programs));
-                
-                // Ordered output: PowerShell related -> VSCode -> Python
-                string[] order = { 
-                    "PWSH7_VERSION", 
-                    "OHMYPOSH_VERSION", 
-                    "TERMINAL_ICONS_VERSION", 
-                    "PSFZF_VERSION", 
-                    "MODERN_UNIX_WIN_VERSION",
-                    "VSCODE_VERSION",
-                    "PYTHON_VERSION"
-                };
-                
-                foreach (var key in order)
-                {
-                    if (versions.ContainsKey(key))
-                        lines.Add(key + "=" + versions[key]);
-                }
-
-                File.WriteAllLines(pvsInfo, lines, Encoding.UTF8);
-                LogActivity("codelauncher.info created successfully at: " + pvsInfo);
-                await Task.CompletedTask;
+                File.WriteAllLines(tempPath, lines, Encoding.UTF8);
+                if (File.Exists(pvsInfo))
+                    File.Replace(tempPath, pvsInfo, null);
+                else
+                    File.Move(tempPath, pvsInfo);
             }
-            catch (Exception ex)
+            finally
             {
-                LogActivity("ERROR: Failed to create codelauncher.info - " + ex.Message);
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
             }
+
+            LogActivity("codelauncher.info created successfully at: " + pvsInfo);
+            await Task.CompletedTask;
         }
 
         private async Task CreateShortcuts()
         {
-            try
-            {
-                UpdateCurrentTask("Creating shortcuts...");
+            UpdateCurrentTask("Creating shortcuts...");
                 
-                string launcherPath = Path.Combine(installDir, "launcher.exe");
-                string iconPath = Path.Combine(installDir, "Code.exe");
+            string launcherPath = Path.Combine(installDir, "launcher.exe");
+            string iconPath = Path.Combine(installDir, "Code.exe");
 
-                ShortcutManager.CreateShortcuts(installDir, launcherPath, iconPath);
-                
-                await Task.CompletedTask;
-            }
-            catch { }
+            if (!ShortcutManager.CreateShortcuts(installDir, launcherPath, iconPath))
+                LogActivity("Warning: one or more shortcuts could not be created.");
+
+            await Task.CompletedTask;
         }
 
         private async Task CopyLauncher()
@@ -3942,11 +3852,27 @@ namespace VSCodePortableInstaller
                     throw new Exception("launcher.exe not found in embedded resources");
                 }
                 
-                using (stream)
-                using (var fileStream = File.Create(launcherDest))
+                string tempPath = launcherDest + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
                 {
-                    stream.CopyTo(fileStream);
+                    using (stream)
+                    using (var fileStream = File.Create(tempPath))
+                    {
+                        stream.CopyTo(fileStream);
+                    }
+
+                    if (new FileInfo(tempPath).Length == 0)
+                        throw new InvalidDataException("Embedded launcher resource is empty.");
+                    if (File.Exists(launcherDest))
+                        File.Replace(tempPath, launcherDest, null);
+                    else
+                        File.Move(tempPath, launcherDest);
                     LogActivity("Launcher extracted to: " + launcherDest);
+                }
+                finally
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
                 }
 
                 await Task.CompletedTask;

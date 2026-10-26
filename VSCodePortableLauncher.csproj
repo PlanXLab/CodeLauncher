@@ -14,7 +14,7 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
-    <ApplicationIcon>res\installer.ico</ApplicationIcon>
+    <ApplicationIcon>res\codelauncher.ico</ApplicationIcon>
     <LangVersion>5</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -60,7 +60,7 @@
     <Compile Include="VSCodePortableCommon.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="res\installer.ico" />
+    <Content Include="res\codelauncher.ico" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="launcher.resx">

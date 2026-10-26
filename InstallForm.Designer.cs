@@ -184,7 +184,7 @@ namespace VSCodePortableInstaller
             this.label1.Location = new System.Drawing.Point(414, 22);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(286, 20);
-            this.label1.Text = "Created by Atticle at PlanX Lab | devcamp@gmail.com";
+            this.label1.Text = "Created by Atticle at PlanX Lab | devcamp@planxlab.com";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // installButton

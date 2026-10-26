@@ -1,125 +1,225 @@
-# PowerShell Profile for Portable VSCode (PVS)
-# This profile initializes the portable environment with custom modules and tools
+# PowerShell profile for the CodeLauncher portable environment
 
-$Base    = $PSScriptRoot
-$Bin     = Join-Path $Base 'bin'
-$Modules = Join-Path $Base 'Modules'
+[Console]::InputEncoding  = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# Initialize Oh My Posh
-$OmpTheme   = Join-Path $Base 'ohmyposh\themes\tos-term.omp.json'
-$OhMyPoshExe = Join-Path $Bin 'oh-my-posh.exe'
-if ((Test-Path $OhMyPoshExe) -and (Test-Path $OmpTheme)) {
-    & $OhMyPoshExe init pwsh --config $OmpTheme | Invoke-Expression
+$Base         = $PSScriptRoot
+$Bin          = "$Base\bin"
+$Modules      = "$Base\Modules"
+$InstallRoot  = [System.IO.Path]::GetFullPath("$Base\..\..\..")
+$PortableData = "$InstallRoot\data"
+$CacheDir     = "$PortableData\cache\pwsh-init"
+
+if (-not [System.IO.Directory]::Exists($CacheDir)) {
+    [void][System.IO.Directory]::CreateDirectory($CacheDir)
 }
 
-# Add bin directory to PATH if not already present
-if ((Test-Path $Bin) -and (-not (($env:Path -split ';') -contains $Bin))) {
+# Fast String-based PATH & PSModulePath setup (No regex/array splitting overhead)
+if ($env:Path -notlike "*$Bin*") {
     $env:Path = "$Bin;$env:Path"
 }
-
-# Add Modules directory to PSModulePath
-$existing = @()
-if ($env:PSModulePath) {
-    $existing = $env:PSModulePath -split ';' | Where-Object { $_ }
-}
-$portableModules = $Modules
-if (-not ($existing -contains $portableModules)) {
-    $env:PSModulePath = ($portableModules, $existing) -join ';'
+if ($env:PSModulePath -notlike "*$Modules*") {
+    $env:PSModulePath = "$Modules;$env:PSModulePath"
 }
 
-# Import portable modules
-Import-Module Terminal-Icons  -ErrorAction SilentlyContinue
+# Import modern-unix-win (Fast path registration only)
+# Note: Terminal-Icons is removed because 'lsd' already provides native icons at 100x speed!
 Import-Module modern-unix-win -ErrorAction SilentlyContinue
-Import-Module PSFzf           -ErrorAction SilentlyContinue
 
-# Setting alias of modern-unix-win 
-if (Get-Command lsd -ErrorAction SilentlyContinue) {
-    Remove-Item alias:ls -ErrorAction SilentlyContinue
-    function ls { lsd @args 2>$null }
-    function ll { lsd -l @args 2>$null }
-    function la { lsd -lall @args 2>$null }
+# Cached Oh My Posh initialization with theme and executable cache validation
+$OmpTheme    = "$PortableData\lib\pwsh\ohmyposh\themes\tos-therm.omp.json"
+$OhMyPoshExe = "$Bin\oh-my-posh.exe"
+$OmpCacheDir = "$PortableData\cache\oh-my-posh"
+$env:POSH_CACHE_PATH = $OmpCacheDir
+$OmpInitCache = "$CacheDir\omp-init-v2.ps1"
+$OmpInitState = "$CacheDir\omp-init-v2.state"
+
+if ([System.IO.File]::Exists($OhMyPoshExe) -and [System.IO.File]::Exists($OmpTheme)) {
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false, $true)
+    $themeBytes = [System.IO.File]::ReadAllBytes($OmpTheme)
+    $themeHasBom = $themeBytes.Length -ge 3 -and
+        $themeBytes[0] -eq 0xEF -and $themeBytes[1] -eq 0xBB -and $themeBytes[2] -eq 0xBF
+    if ($themeHasBom) {
+        $themeContent = $utf8NoBom.GetString($themeBytes, 3, $themeBytes.Length - 3).TrimStart([char]0xFEFF)
+        $themeTempPath = "$OmpTheme.$PID.$([guid]::NewGuid().ToString('N')).tmp"
+        try {
+            [System.IO.File]::WriteAllText($themeTempPath, $themeContent, [System.Text.UTF8Encoding]::new($false))
+            [System.IO.File]::Replace($themeTempPath, $OmpTheme, $null)
+        }
+        finally {
+            if ([System.IO.File]::Exists($themeTempPath)) {
+                [System.IO.File]::Delete($themeTempPath)
+            }
+        }
+    }
+
+    Remove-Item Env:\POSH_SESSION_ID -ErrorAction SilentlyContinue
+    [void][System.IO.Directory]::CreateDirectory($OmpCacheDir)
+
+    $safeTheme = $OmpTheme -replace '\\', '/'
+    $themeHash = (Get-FileHash -LiteralPath $OmpTheme -Algorithm SHA256).Hash
+    $ompExeInfo = Get-Item -LiteralPath $OhMyPoshExe
+    $ompCacheKey = "$safeTheme|$themeHash|$($ompExeInfo.Length)|$($ompExeInfo.LastWriteTimeUtc.Ticks)"
+    $cachedKey = if ([System.IO.File]::Exists($OmpInitState)) {
+        [System.IO.File]::ReadAllText($OmpInitState).Trim()
+    } else {
+        ''
+    }
+
+    if (-not [System.IO.File]::Exists($OmpInitCache) -or $cachedKey -cne $ompCacheKey) {
+        foreach ($cacheDirectory in @(
+            $OmpCacheDir,
+            $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'oh-my-posh' })
+        )) {
+            if (-not $cacheDirectory -or -not [System.IO.Directory]::Exists($cacheDirectory)) {
+                continue
+            }
+
+            foreach ($cacheEntry in [System.IO.Directory]::GetFileSystemEntries($cacheDirectory)) {
+                if ([System.IO.Directory]::Exists($cacheEntry)) {
+                    [System.IO.Directory]::Delete($cacheEntry, $true)
+                } else {
+                    [System.IO.File]::Delete($cacheEntry)
+                }
+            }
+        }
+
+        foreach ($staleCacheFile in @($OmpInitCache, $OmpInitState)) {
+            if ([System.IO.File]::Exists($staleCacheFile)) {
+                [System.IO.File]::Delete($staleCacheFile)
+            }
+        }
+
+        $ompInitOutput = & $OhMyPoshExe init pwsh --config $safeTheme --print
+        $ompInitExitCode = $LASTEXITCODE
+        if ($ompInitExitCode -ne 0) {
+            throw "Oh My Posh initialization failed with exit code $ompInitExitCode."
+        }
+
+        $ompInitScript = $ompInitOutput -join [Environment]::NewLine
+        if ([string]::IsNullOrWhiteSpace($ompInitScript)) {
+            throw 'Oh My Posh did not generate its PowerShell initialization script.'
+        }
+
+        $ompInitTempPath = "$OmpInitCache.$PID.$([guid]::NewGuid().ToString('N')).tmp"
+        $ompStateTempPath = "$OmpInitState.$PID.$([guid]::NewGuid().ToString('N')).tmp"
+        try {
+            [System.IO.File]::WriteAllText($ompInitTempPath, $ompInitScript, [System.Text.UTF8Encoding]::new($false))
+            [System.IO.File]::WriteAllText($ompStateTempPath, $ompCacheKey, [System.Text.UTF8Encoding]::new($false))
+            [System.IO.File]::Move($ompInitTempPath, $OmpInitCache)
+            [System.IO.File]::Move($ompStateTempPath, $OmpInitState)
+        }
+        finally {
+            foreach ($tempPath in @($ompInitTempPath, $ompStateTempPath)) {
+                if ([System.IO.File]::Exists($tempPath)) {
+                    [System.IO.File]::Delete($tempPath)
+                }
+            }
+        }
+    }
+
+    . $OmpInitCache
 }
-if (Get-Command bat -ErrorAction SilentlyContinue) {
-    Set-Alias -Name cat -Value bat -Force
-    $env:BAT_THEME = 'ansi'  # Readable on both dark and light backgrounds
+
+# Cached zoxide Initialization (Saves ~100ms per startup)
+$zoxideInitCache = "$CacheDir\zoxide-init.ps1"
+if (-not [System.IO.File]::Exists($zoxideInitCache)) {
+    if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+        & zoxide init powershell | Set-Content -Path $zoxideInitCache -Encoding utf8NoBOM
+    }
 }
-Set-Alias -Name dig -Value dog -Force
-Set-Alias -Name grep -Value rg -Force
-Set-Alias -Name find -Value fd -Force
-Set-Alias -Name ps -Value procs -Force
-Set-Alias -Name top -Value btm -Force
-Set-Alias -Name du -Value dust -Force
-Set-Alias -Name df -Value duf -Force
+if ([System.IO.File]::Exists($zoxideInitCache)) {
+    . $zoxideInitCache
+}
+
+# Zero-cost Alias Binding (No Get-Command disk lookup on startup)
+Remove-Item Alias:ls -ErrorAction SilentlyContinue
+function ls { lsd @args }
+function ll { lsd -l @args }
+function la { lsd -lall @args }
+
+$env:BAT_THEME = 'ansi'
+Set-Alias -Name cat  -Value bat   -Force
+Set-Alias -Name dig  -Value dog   -Force
+Set-Alias -Name grep -Value rg    -Force
+Set-Alias -Name find -Value fd    -Force
+Set-Alias -Name ps   -Value procs -Force
+Set-Alias -Name top  -Value btm   -Force
+Set-Alias -Name du   -Value dust  -Force
+Set-Alias -Name df   -Value duf   -Force
 Set-Alias -Name ping -Value gping -Force
-Set-Alias -Name http -Value xh -Force
-if (Get-Command zoxide -ErrorAction SilentlyContinue) {
-    Invoke-Expression (& zoxide init powershell | Out-String)
-}
-Set-Alias -Name sed -Value sd -Force
+Set-Alias -Name http -Value xh    -Force
+Set-Alias -Name sed  -Value sd    -Force
 
-# Configure PSFzf if available (zsh-like: Ctrl+t, Ctrl+r)
-if (Get-Module PSFzf -ListAvailable) {
-    Set-PsFzfOption -PsReadlineChordProvider 'Ctrl+t' `
-                    -PsReadlineChordReverseHistory 'Ctrl+r'
+# Configure PSReadLine FIRST
+$HistoryPath = "$PortableData\user-data\PowerShell\History.txt"
+$HistoryDir  = [System.IO.Path]::GetDirectoryName($HistoryPath)
+if (-not [System.IO.Directory]::Exists($HistoryDir)) {
+    [void][System.IO.Directory]::CreateDirectory($HistoryDir)
 }
 
-# Configure PSReadLine (built-in with PowerShell 7)
 Set-PSReadLineOption -EditMode Emacs `
                      -PredictionSource HistoryAndPlugin `
                      -PredictionViewStyle ListView `
                      -HistoryNoDuplicates `
                      -HistorySearchCursorMovesToEnd `
-                     -HistorySavePath ~\History.txt
+                     -HistorySavePath $HistoryPath
 
-# zsh keybinding
+# Lazy-Load PSFzf on first keypress
+$global:PSFzfLoaded = $false
+function Invoke-LazyPsFzf ($TargetKey) {
+    if (-not $global:PSFzfLoaded) {
+        Import-Module PSFzf -ErrorAction SilentlyContinue
+        Set-PsFzfOption -PsReadlineChordProvider 'Ctrl+t' `
+                        -PsReadlineChordReverseHistory 'Ctrl+r'
+        $global:PSFzfLoaded = $true
+    }
+    
+    $boundHandler = Get-PSReadLineKeyHandler -Bound | Where-Object { $_.Key -eq $TargetKey }
+    if ($boundHandler -and $boundHandler.ScriptBlock) {
+        & $boundHandler.ScriptBlock
+    }
+}
+
+Set-PSReadLineKeyHandler -Key 'Ctrl+t' -ScriptBlock { Invoke-LazyPsFzf 'Ctrl+t' }
+Set-PSReadLineKeyHandler -Key 'Ctrl+r' -ScriptBlock { Invoke-LazyPsFzf 'Ctrl+r' }
+
+# Custom zsh Keybindings
 Set-PSReadLineKeyHandler -Key Ctrl+a -Function BeginningOfLine
 Set-PSReadLineKeyHandler -Key Ctrl+e -Function EndOfLine
 Set-PSReadLineKeyHandler -Key Alt+b  -Function BackwardWord
 Set-PSReadLineKeyHandler -Key Alt+f  -Function ForwardWord
 Set-PSReadLineKeyHandler -Key Ctrl+u -Function BackwardDeleteLine
 Set-PSReadLineKeyHandler -Key Ctrl+k -Function ForwardDeleteLine
+Set-PSReadLineKeyHandler -Key Tab    -Function MenuComplete
 
-# Tab: (zsh menu-complete)
-Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-
-# Custom 'which' command (zsh which)
+# Helper Functions
 function which ($command) {
-    Get-Command -Name $command -ErrorAction SilentlyContinue |
-        Select-Object -ExpandProperty Path -ErrorAction SilentlyContinue
+    (Get-Command -Name $command -ErrorAction SilentlyContinue).Path
 }
 
-# Clear all history (file + in-memory PSReadLine buffer + session history)
 function clh {
     $histPath = (Get-PSReadLineOption).HistorySavePath
-    if ($histPath -and (Test-Path $histPath)) {
+    if ($histPath -and [System.IO.File]::Exists($histPath)) {
         Remove-Item $histPath -Force
     }
     [Microsoft.PowerShell.PSConsoleReadLine]::ClearHistory()
     Clear-History
 }
 
-# zsh style/alias
-function ..    { Set-Location .. }
-function ...   { Set-Location ../.. }
-function ....  { Set-Location ../../.. }
+function ..   { Set-Location .. }
+function ...  { Set-Location ../.. }
+function .... { Set-Location ../../.. }
 
-# Remove the default '?' alias (Where-Object) and replace with custom function
-if (Get-Alias -Name '?' -ErrorAction SilentlyContinue) {
-    Remove-Item -Path Alias:? -Force
-}
-
-# Display modern-unix-win commands when '?' is entered
-function global:? {
-    # Read version from codelauncher.info
-    $pvsInfo = Join-Path $Base '..\..\..\codelauncher.info'
-    $pvsInfo = [System.IO.Path]::GetFullPath($pvsInfo)
+# Help command '??'
+function global:?? {
+    $pvsInfo = [System.IO.Path]::GetFullPath("$Base\..\..\..\codelauncher.info")
     $modernUnixVersion = ''
     
-    if (Test-Path $pvsInfo) {
-        $lines = Get-Content $pvsInfo
-        foreach ($line in $lines) {
+    if ([System.IO.File]::Exists($pvsInfo)) {
+        foreach ($line in [System.IO.File]::ReadLines($pvsInfo)) {
             if ($line -match '^MODERN_UNIX_WIN_VERSION=(.+)$') {
-                $modernUnixVersion = $matches[1]
+                $modernUnixVersion = $matches[1].Trim()
                 break
             }
         }
@@ -127,14 +227,11 @@ function global:? {
     
     if (-not $modernUnixVersion) {
         Write-Host "modern-unix-win version not found in codelauncher.info" -ForegroundColor Red
-        Write-Host "Expected path: $pvsInfo" -ForegroundColor Gray
         return
     }
     
-    $modernUnixBin = Join-Path $Modules "modern-unix-win\$modernUnixVersion\bin"
-    
-    if (Test-Path $modernUnixBin) {
-        # Command descriptions with aliases
+    $modernUnixBin = "$Modules\modern-unix-win\$modernUnixVersion\bin"
+    if ([System.IO.Directory]::Exists($modernUnixBin)) {
         $descriptions = @{
             "bat"       = @{ desc = "A cat(1) clone with syntax highlighting and Git integration"; alias = "cat" }
             "broot"     = @{ desc = "A tree explorer and a customizable launcher"; alias = $null }
@@ -161,86 +258,19 @@ function global:? {
         Write-Host "`nModern Unix Commands (modern-unix-win v$modernUnixVersion):" -ForegroundColor Cyan
         Write-Host ("=" * 80) -ForegroundColor DarkGray
         
-        Get-ChildItem -Path $modernUnixBin -File |
-            Where-Object { $_.Extension -in @('.exe', '.bat', '.cmd', '') } |
-            Sort-Object Name |
-            ForEach-Object {
-                $name = $_.BaseName
-                $info = $descriptions[$name]
-                if ($info) {
-                    Write-Host "  " -NoNewline
-                    
-                    # Show command name
-                    Write-Host $name.PadRight(12) -ForegroundColor Green -NoNewline
-                    
-                    # Show alias if exists
-                    if ($info.alias) {
-                        Write-Host "[" -ForegroundColor DarkGray -NoNewline
-                        Write-Host $info.alias -ForegroundColor Cyan -NoNewline
-                        Write-Host "] " -ForegroundColor DarkGray -NoNewline
-                    }
-                    
-                    # Show description
-                    Write-Host $info.desc -ForegroundColor Gray
+        Get-ChildItem -Path $modernUnixBin -File | Sort-Object Name | ForEach-Object {
+            $name = $_.BaseName
+            $info = $descriptions[$name]
+            if ($info) {
+                Write-Host ("  " + $name.PadRight(12)) -ForegroundColor Green -NoNewline
+                if ($info.alias) {
+                    Write-Host ("[" + $info.alias + "]").PadRight(14) -ForegroundColor Yellow -NoNewline
                 } else {
-                    Write-Host "  $name" -ForegroundColor Green
+                    Write-Host (" " * 14) -NoNewline
                 }
+                Write-Host $info.desc -ForegroundColor Gray
             }
-        
-        # Custom profile commands
-        Write-Host "`nCustom Commands:" -ForegroundColor Cyan
-        Write-Host ("=" * 80) -ForegroundColor DarkGray
-        @(
-            @{ name = "clh";   desc = "Clear all terminal history (file + buffer + session)" }
-            @{ name = "which"; desc = "Show full path of a command" }
-            @{ name = ".. / ... / ...."; desc = "Go up 1 / 2 / 3 directories" }
-        ) | ForEach-Object {
-            Write-Host "  $($_.name.PadRight(20))" -ForegroundColor Green -NoNewline
-            Write-Host $_.desc -ForegroundColor Gray
         }
-
-        Write-Host "`nTip: Use --help with any command for detailed usage (e.g., 'bat --help')" -ForegroundColor Yellow
-    } else {
-        Write-Host "modern-unix-win module not found at: $modernUnixBin" -ForegroundColor Red
-    }
-}
-
-# Python script handler: foo.py, ./foo.py, ./ch1/foo.py
-$ExecutionContext.InvokeCommand.PreCommandLookupAction = {
-    param($CommandName, $CommandLookupEventArgs)
-
-    if ($CommandName -notmatch '\.py$') { return }
-
-    $filePath = $null
-    if ([System.IO.Path]::IsPathRooted($CommandName)) {
-        if (Test-Path $CommandName) { $filePath = $CommandName }
-    } elseif ($CommandName -match '^\.[\\/](.+)$') {
-        $candidate = Join-Path (Get-Location).Path $Matches[1]
-        if (Test-Path $candidate) { $filePath = $candidate }
-    } else {
-        $candidate = Join-Path (Get-Location).Path $CommandName
-        if (Test-Path $candidate) { $filePath = $candidate }
-    }
-
-    if (-not $filePath) { return }
-
-    $firstLine   = Get-Content $filePath -First 1 -ErrorAction SilentlyContinue
-    $interpreter = if ($firstLine -match '^#!replx\s*$') { 'replx' } else { 'python' }
-
-    $CommandLookupEventArgs.CommandScriptBlock = {
-        & $interpreter $filePath @args
-    }.GetNewClosure()
-    $CommandLookupEventArgs.StopSearch = $true
-}
-
-# Command Not Found handler: zsh AUTO_CD
-$ExecutionContext.InvokeCommand.CommandNotFoundAction = {
-    param($CommandName, $CommandLookupEventArgs)
-
-    if (Test-Path $CommandName -PathType Container) {
-        $CommandLookupEventArgs.CommandScriptBlock = {
-            Set-Location $CommandName
-        }.GetNewClosure()
-        $CommandLookupEventArgs.StopSearch = $true
+        Write-Host ""
     }
 }

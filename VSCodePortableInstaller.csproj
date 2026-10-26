@@ -14,7 +14,7 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
-    <ApplicationIcon>res\installer.ico</ApplicationIcon>
+    <ApplicationIcon>res\codelauncher.ico</ApplicationIcon>
     <LangVersion>5</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -66,14 +66,14 @@
     <EmbeddedResource Include="res\settings.json" />
     <EmbeddedResource Include="res\0xProtoNerdFont-Regular.ttf" />
     <EmbeddedResource Include="res\DalseoHealingMedium.ttf" />
-    <EmbeddedResource Include="res\tos-term.omp.json" />
+    <EmbeddedResource Include="res\tos-therm.omp.json" />
     <!-- launcher.exe will be copied by CopyLauncherBeforeBuild target -->
-    <EmbeddedResource Include="res\launcher.exe" Condition="Exists('res\launcher.exe')">
+    <EmbeddedResource Include="res\launcher.exe">
       <Link>launcher.exe</Link>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="res\installer.ico" />
+    <Content Include="res\codelauncher.ico" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="dist\" />

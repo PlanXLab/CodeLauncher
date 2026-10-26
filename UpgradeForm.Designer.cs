@@ -49,9 +49,6 @@ namespace VSCodePortableLauncher
             this.ohmyposhNameLabel = new System.Windows.Forms.Label();
             this.ohmyposhProgressBar = new System.Windows.Forms.ProgressBar();
             this.ohmyposhStatusLabel = new System.Windows.Forms.Label();
-            this.termIconsNameLabel = new System.Windows.Forms.Label();
-            this.termIconsProgressBar = new System.Windows.Forms.ProgressBar();
-            this.termIconsStatusLabel = new System.Windows.Forms.Label();
             this.psfzfNameLabel = new System.Windows.Forms.Label();
             this.psfzfProgressBar = new System.Windows.Forms.ProgressBar();
             this.psfzfStatusLabel = new System.Windows.Forms.Label();
@@ -61,6 +58,9 @@ namespace VSCodePortableLauncher
             this.vscodeNameLabel = new System.Windows.Forms.Label();
             this.vscodeProgressBar = new System.Windows.Forms.ProgressBar();
             this.vscodeStatusLabel = new System.Windows.Forms.Label();
+            this.pythonNameLabel = new System.Windows.Forms.Label();
+            this.pythonProgressBar = new System.Windows.Forms.ProgressBar();
+            this.pythonStatusLabel = new System.Windows.Forms.Label();
             this.headerPanel.SuspendLayout();
             this.settingsPanel.SuspendLayout();
             this.progressPanel.SuspendLayout();
@@ -86,7 +86,7 @@ namespace VSCodePortableLauncher
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(286, 20);
             this.label1.TabIndex = 2;
-            this.label1.Text = "Created by Atticle at PlanX Lab | devcamp@gmail.com";
+            this.label1.Text = "Created by Atticle at PlanX Lab | devcamp@planxlab.com";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // headerSubLabel
@@ -280,18 +280,18 @@ namespace VSCodePortableLauncher
             this.componentTable.Controls.Add(this.ohmyposhNameLabel, 0, 1);
             this.componentTable.Controls.Add(this.ohmyposhProgressBar, 1, 1);
             this.componentTable.Controls.Add(this.ohmyposhStatusLabel, 2, 1);
-            this.componentTable.Controls.Add(this.termIconsNameLabel, 0, 2);
-            this.componentTable.Controls.Add(this.termIconsProgressBar, 1, 2);
-            this.componentTable.Controls.Add(this.termIconsStatusLabel, 2, 2);
-            this.componentTable.Controls.Add(this.psfzfNameLabel, 0, 3);
-            this.componentTable.Controls.Add(this.psfzfProgressBar, 1, 3);
-            this.componentTable.Controls.Add(this.psfzfStatusLabel, 2, 3);
-            this.componentTable.Controls.Add(this.modernUnixNameLabel, 0, 4);
-            this.componentTable.Controls.Add(this.modernUnixProgressBar, 1, 4);
-            this.componentTable.Controls.Add(this.modernUnixStatusLabel, 2, 4);
-            this.componentTable.Controls.Add(this.vscodeNameLabel, 0, 5);
-            this.componentTable.Controls.Add(this.vscodeProgressBar, 1, 5);
-            this.componentTable.Controls.Add(this.vscodeStatusLabel, 2, 5);
+            this.componentTable.Controls.Add(this.psfzfNameLabel, 0, 2);
+            this.componentTable.Controls.Add(this.psfzfProgressBar, 1, 2);
+            this.componentTable.Controls.Add(this.psfzfStatusLabel, 2, 2);
+            this.componentTable.Controls.Add(this.modernUnixNameLabel, 0, 3);
+            this.componentTable.Controls.Add(this.modernUnixProgressBar, 1, 3);
+            this.componentTable.Controls.Add(this.modernUnixStatusLabel, 2, 3);
+            this.componentTable.Controls.Add(this.vscodeNameLabel, 0, 4);
+            this.componentTable.Controls.Add(this.vscodeProgressBar, 1, 4);
+            this.componentTable.Controls.Add(this.vscodeStatusLabel, 2, 4);
+            this.componentTable.Controls.Add(this.pythonNameLabel, 0, 5);
+            this.componentTable.Controls.Add(this.pythonProgressBar, 1, 5);
+            this.componentTable.Controls.Add(this.pythonStatusLabel, 2, 5);
             this.componentTable.Location = new System.Drawing.Point(20, 14);
             this.componentTable.Name = "componentTable";
             this.componentTable.RowCount = 6;
@@ -370,45 +370,12 @@ namespace VSCodePortableLauncher
             this.ohmyposhStatusLabel.Text = "Waiting";
             this.ohmyposhStatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
-            // termIconsNameLabel
-            //
-            this.termIconsNameLabel.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.termIconsNameLabel.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.termIconsNameLabel.ForeColor = System.Drawing.Color.FromArgb(50, 50, 50);
-            this.termIconsNameLabel.Location = new System.Drawing.Point(3, 62);
-            this.termIconsNameLabel.Name = "termIconsNameLabel";
-            this.termIconsNameLabel.Size = new System.Drawing.Size(90, 31);
-            this.termIconsNameLabel.TabIndex = 6;
-            this.termIconsNameLabel.Text = "Terminal-Icons";
-            this.termIconsNameLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // termIconsProgressBar
-            //
-            this.termIconsProgressBar.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.termIconsProgressBar.Location = new System.Drawing.Point(99, 71);
-            this.termIconsProgressBar.Name = "termIconsProgressBar";
-            this.termIconsProgressBar.Size = new System.Drawing.Size(468, 12);
-            this.termIconsProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-            this.termIconsProgressBar.TabIndex = 7;
-            //
-            // termIconsStatusLabel
-            //
-            this.termIconsStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.termIconsStatusLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
-            this.termIconsStatusLabel.ForeColor = System.Drawing.Color.FromArgb(160, 160, 160);
-            this.termIconsStatusLabel.Location = new System.Drawing.Point(573, 62);
-            this.termIconsStatusLabel.Name = "termIconsStatusLabel";
-            this.termIconsStatusLabel.Size = new System.Drawing.Size(104, 31);
-            this.termIconsStatusLabel.TabIndex = 8;
-            this.termIconsStatusLabel.Text = "Waiting";
-            this.termIconsStatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
             // psfzfNameLabel
             //
             this.psfzfNameLabel.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.psfzfNameLabel.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.psfzfNameLabel.ForeColor = System.Drawing.Color.FromArgb(50, 50, 50);
-            this.psfzfNameLabel.Location = new System.Drawing.Point(3, 93);
+            this.psfzfNameLabel.Location = new System.Drawing.Point(3, 62);
             this.psfzfNameLabel.Name = "psfzfNameLabel";
             this.psfzfNameLabel.Size = new System.Drawing.Size(90, 31);
             this.psfzfNameLabel.TabIndex = 9;
@@ -418,7 +385,7 @@ namespace VSCodePortableLauncher
             // psfzfProgressBar
             //
             this.psfzfProgressBar.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.psfzfProgressBar.Location = new System.Drawing.Point(99, 102);
+            this.psfzfProgressBar.Location = new System.Drawing.Point(99, 71);
             this.psfzfProgressBar.Name = "psfzfProgressBar";
             this.psfzfProgressBar.Size = new System.Drawing.Size(468, 12);
             this.psfzfProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
@@ -429,7 +396,7 @@ namespace VSCodePortableLauncher
             this.psfzfStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.psfzfStatusLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.psfzfStatusLabel.ForeColor = System.Drawing.Color.FromArgb(160, 160, 160);
-            this.psfzfStatusLabel.Location = new System.Drawing.Point(573, 93);
+            this.psfzfStatusLabel.Location = new System.Drawing.Point(573, 62);
             this.psfzfStatusLabel.Name = "psfzfStatusLabel";
             this.psfzfStatusLabel.Size = new System.Drawing.Size(104, 31);
             this.psfzfStatusLabel.TabIndex = 11;
@@ -441,7 +408,7 @@ namespace VSCodePortableLauncher
             this.modernUnixNameLabel.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.modernUnixNameLabel.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.modernUnixNameLabel.ForeColor = System.Drawing.Color.FromArgb(50, 50, 50);
-            this.modernUnixNameLabel.Location = new System.Drawing.Point(3, 124);
+            this.modernUnixNameLabel.Location = new System.Drawing.Point(3, 93);
             this.modernUnixNameLabel.Name = "modernUnixNameLabel";
             this.modernUnixNameLabel.Size = new System.Drawing.Size(90, 31);
             this.modernUnixNameLabel.TabIndex = 12;
@@ -451,7 +418,7 @@ namespace VSCodePortableLauncher
             // modernUnixProgressBar
             //
             this.modernUnixProgressBar.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.modernUnixProgressBar.Location = new System.Drawing.Point(99, 133);
+            this.modernUnixProgressBar.Location = new System.Drawing.Point(99, 102);
             this.modernUnixProgressBar.Name = "modernUnixProgressBar";
             this.modernUnixProgressBar.Size = new System.Drawing.Size(468, 12);
             this.modernUnixProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
@@ -462,7 +429,7 @@ namespace VSCodePortableLauncher
             this.modernUnixStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.modernUnixStatusLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.modernUnixStatusLabel.ForeColor = System.Drawing.Color.FromArgb(160, 160, 160);
-            this.modernUnixStatusLabel.Location = new System.Drawing.Point(573, 124);
+            this.modernUnixStatusLabel.Location = new System.Drawing.Point(573, 93);
             this.modernUnixStatusLabel.Name = "modernUnixStatusLabel";
             this.modernUnixStatusLabel.Size = new System.Drawing.Size(104, 31);
             this.modernUnixStatusLabel.TabIndex = 14;
@@ -474,7 +441,7 @@ namespace VSCodePortableLauncher
             this.vscodeNameLabel.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.vscodeNameLabel.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.vscodeNameLabel.ForeColor = System.Drawing.Color.FromArgb(50, 50, 50);
-            this.vscodeNameLabel.Location = new System.Drawing.Point(3, 155);
+            this.vscodeNameLabel.Location = new System.Drawing.Point(3, 124);
             this.vscodeNameLabel.Name = "vscodeNameLabel";
             this.vscodeNameLabel.Size = new System.Drawing.Size(90, 31);
             this.vscodeNameLabel.TabIndex = 15;
@@ -484,7 +451,7 @@ namespace VSCodePortableLauncher
             // vscodeProgressBar
             //
             this.vscodeProgressBar.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.vscodeProgressBar.Location = new System.Drawing.Point(99, 164);
+            this.vscodeProgressBar.Location = new System.Drawing.Point(99, 133);
             this.vscodeProgressBar.Name = "vscodeProgressBar";
             this.vscodeProgressBar.Size = new System.Drawing.Size(468, 12);
             this.vscodeProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
@@ -495,12 +462,45 @@ namespace VSCodePortableLauncher
             this.vscodeStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.vscodeStatusLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
             this.vscodeStatusLabel.ForeColor = System.Drawing.Color.FromArgb(160, 160, 160);
-            this.vscodeStatusLabel.Location = new System.Drawing.Point(573, 155);
+            this.vscodeStatusLabel.Location = new System.Drawing.Point(573, 124);
             this.vscodeStatusLabel.Name = "vscodeStatusLabel";
             this.vscodeStatusLabel.Size = new System.Drawing.Size(104, 31);
             this.vscodeStatusLabel.TabIndex = 17;
             this.vscodeStatusLabel.Text = "Waiting";
             this.vscodeStatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // pythonNameLabel
+            //
+            this.pythonNameLabel.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pythonNameLabel.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.pythonNameLabel.ForeColor = System.Drawing.Color.FromArgb(50, 50, 50);
+            this.pythonNameLabel.Location = new System.Drawing.Point(3, 155);
+            this.pythonNameLabel.Name = "pythonNameLabel";
+            this.pythonNameLabel.Size = new System.Drawing.Size(90, 31);
+            this.pythonNameLabel.TabIndex = 18;
+            this.pythonNameLabel.Text = "Python";
+            this.pythonNameLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // pythonProgressBar
+            //
+            this.pythonProgressBar.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.pythonProgressBar.Location = new System.Drawing.Point(99, 164);
+            this.pythonProgressBar.Name = "pythonProgressBar";
+            this.pythonProgressBar.Size = new System.Drawing.Size(468, 12);
+            this.pythonProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
+            this.pythonProgressBar.TabIndex = 19;
+            //
+            // pythonStatusLabel
+            //
+            this.pythonStatusLabel.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pythonStatusLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.pythonStatusLabel.ForeColor = System.Drawing.Color.FromArgb(160, 160, 160);
+            this.pythonStatusLabel.Location = new System.Drawing.Point(573, 155);
+            this.pythonStatusLabel.Name = "pythonStatusLabel";
+            this.pythonStatusLabel.Size = new System.Drawing.Size(104, 31);
+            this.pythonStatusLabel.TabIndex = 20;
+            this.pythonStatusLabel.Text = "Waiting";
+            this.pythonStatusLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // UpgradeForm
             //
@@ -552,9 +552,6 @@ namespace VSCodePortableLauncher
         private System.Windows.Forms.Label ohmyposhNameLabel;
         private System.Windows.Forms.ProgressBar ohmyposhProgressBar;
         private System.Windows.Forms.Label ohmyposhStatusLabel;
-        private System.Windows.Forms.Label termIconsNameLabel;
-        private System.Windows.Forms.ProgressBar termIconsProgressBar;
-        private System.Windows.Forms.Label termIconsStatusLabel;
         private System.Windows.Forms.Label psfzfNameLabel;
         private System.Windows.Forms.ProgressBar psfzfProgressBar;
         private System.Windows.Forms.Label psfzfStatusLabel;
@@ -564,5 +561,8 @@ namespace VSCodePortableLauncher
         private System.Windows.Forms.Label vscodeNameLabel;
         private System.Windows.Forms.ProgressBar vscodeProgressBar;
         private System.Windows.Forms.Label vscodeStatusLabel;
+        private System.Windows.Forms.Label pythonNameLabel;
+        private System.Windows.Forms.ProgressBar pythonProgressBar;
+        private System.Windows.Forms.Label pythonStatusLabel;
     }
 }
