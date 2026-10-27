@@ -2248,6 +2248,7 @@ namespace VSCodePortableCommon
 
                 Directory.CreateDirectory(folder);
                 string shortcutPath = Path.Combine(folder, name + ".lnk");
+                bool shortcutExists = File.Exists(shortcutPath);
                 Type shellType = Type.GetTypeFromProgID("WScript.Shell");
                 if (shellType == null)
                     return false;
@@ -2257,16 +2258,17 @@ namespace VSCodePortableCommon
                 shortcut = shellObject.CreateShortcut(shortcutPath);
                 dynamic shortcutObject = shortcut;
 
-                if (!forceUpdate && File.Exists(shortcutPath))
+                if (!forceUpdate && shortcutExists)
                 {
                     try
                     {
                         string currentTarget = shortcutObject.TargetPath as string;
-                        int currentWindowStyle = Convert.ToInt32(shortcutObject.WindowStyle);
                         string currentWorkingDir = shortcutObject.WorkingDirectory as string;
+                        string currentIcon = shortcutObject.IconLocation as string;
                         if (PathsEqual(currentTarget, targetPath) &&
                             PathsEqual(currentWorkingDir, workingDir) &&
-                            currentWindowStyle == 1)
+                            (string.Equals(currentIcon, iconPath ?? string.Empty, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(currentIcon, iconPath + ",0", StringComparison.OrdinalIgnoreCase)))
                             return true;
                     }
                     catch (Exception)
@@ -2275,10 +2277,13 @@ namespace VSCodePortableCommon
                 }
 
                 shortcutObject.TargetPath = targetPath;
-                shortcutObject.Arguments = arguments ?? string.Empty;
                 shortcutObject.WorkingDirectory = workingDir ?? string.Empty;
                 shortcutObject.IconLocation = iconPath ?? string.Empty;
-                shortcutObject.WindowStyle = 1;
+                if (!shortcutExists)
+                {
+                    shortcutObject.Arguments = arguments ?? string.Empty;
+                    shortcutObject.WindowStyle = 1;
+                }
                 shortcutObject.Save();
                 return true;
             }

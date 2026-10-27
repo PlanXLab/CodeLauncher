@@ -843,7 +843,7 @@ namespace VSCodePortableInstaller
                 {
                     resolvedPythonVersion = availableVersion;
                     pythonVersionInput = requestedVersion;
-                    pythonVersionTextBox.Text = requestedVersion;
+                    pythonVersionTextBox.Text = string.IsNullOrWhiteSpace(requestedVersion) ? availableVersion : requestedVersion;
                     LogActivity("Python: Verified Windows embeddable package " + availableVersion);
                     return true;
                 }
