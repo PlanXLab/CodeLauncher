@@ -1363,6 +1363,7 @@ namespace VSCodePortableCommon
                 if (Directory.GetFiles(stagingModuleDir, "*.psd1", SearchOption.AllDirectories).Length == 0)
                     throw new InvalidDataException("The extracted " + moduleName + " package has no module manifest.");
 
+                await EnsureModernUnixCompatibilityAsync(moduleName, stagingModuleDir);
                 CommonHelper.ReplaceDirectoryAtomically(stagingModuleDir, finalModuleDir, backupModuleDir, logActivity);
                 try { Directory.Delete(extractPath, true); }
                 catch (IOException ex) { logActivity(moduleName + ": Temporary extraction cleanup warning - " + ex.Message); }
@@ -1526,6 +1527,7 @@ namespace VSCodePortableCommon
 
                     if (!string.IsNullOrEmpty(version))
                     {
+                        await EnsureModernUnixCompatibilityAsync(moduleName, Path.Combine(moduleDir, version));
                         updateStatus(moduleName, "✓ Completed", 100);
                         logActivity(moduleName + ": Successfully installed version " + version);
                     }
@@ -1552,6 +1554,92 @@ namespace VSCodePortableCommon
             return string.IsNullOrEmpty(version)
                 ? new KeyValuePair<string, string>()
                 : new KeyValuePair<string, string>(versionKey, version);
+        }
+
+        private async Task EnsureModernUnixCompatibilityAsync(string moduleName, string moduleDirectory)
+        {
+            if (!string.Equals(moduleName, "modern-unix-win", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            string executable = Path.Combine(moduleDirectory, "bin", "lsd.exe");
+            if (!File.Exists(executable) || ReadLsdVersion(executable) >= new Version(1, 2, 0))
+                return;
+
+            const string releaseUrl = "https://github.com/lsd-rs/lsd/releases/download/v1.2.0/lsd-v1.2.0-x86_64-pc-windows-msvc.zip";
+            const string expectedHash = "a65b9f457153934a7ce1f7e0fe1c4922a95bb2822222126e4fbaa6ee9c0d78e5";
+            string temporaryDirectory = Path.Combine(Path.GetTempPath(), "codenix-lsd-" + Guid.NewGuid().ToString("N"));
+            string replacement = executable + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                logActivity(moduleName + ": Updating bundled lsd to 1.2.0 for Windows ACL compatibility...");
+                Directory.CreateDirectory(temporaryDirectory);
+                string archivePath = Path.Combine(temporaryDirectory, "lsd.zip");
+                using (var client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromMinutes(5);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeNix/1.0");
+                    await CommonHelper.DownloadFileWithRetryAsync(client, releaseUrl, archivePath,
+                        System.Threading.CancellationToken.None);
+                }
+
+                using (var algorithm = System.Security.Cryptography.SHA256.Create())
+                using (var stream = File.OpenRead(archivePath))
+                {
+                    string actualHash = BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", "");
+                    if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException("The lsd package SHA256 checksum does not match the official release.");
+                }
+
+                string stagedExecutable = Path.Combine(temporaryDirectory, "lsd.exe");
+                using (var archive = ZipFile.OpenRead(archivePath))
+                {
+                    var entry = archive.Entries.SingleOrDefault(item =>
+                        string.Equals(Path.GetFileName(item.FullName), "lsd.exe", StringComparison.OrdinalIgnoreCase));
+                    if (entry == null || entry.Length == 0)
+                        throw new InvalidDataException("The lsd package does not contain a valid executable.");
+                    entry.ExtractToFile(stagedExecutable);
+                }
+                if (ReadLsdVersion(stagedExecutable) != new Version(1, 2, 0))
+                    throw new InvalidDataException("The lsd executable version does not match the verified release.");
+
+                File.Copy(stagedExecutable, replacement);
+                File.Replace(replacement, executable, executable + ".legacy-backup");
+                logActivity(moduleName + ": Bundled lsd upgraded to 1.2.0; original executable preserved.");
+            }
+            finally
+            {
+                if (File.Exists(replacement)) File.Delete(replacement);
+                if (Directory.Exists(temporaryDirectory)) Directory.Delete(temporaryDirectory, true);
+            }
+        }
+
+        private static Version ReadLsdVersion(string executable)
+        {
+            using (var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = executable,
+                Arguments = "--version",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            }))
+            {
+                var output = process.StandardOutput.ReadToEndAsync();
+                var error = process.StandardError.ReadToEndAsync();
+                if (!process.WaitForExit(10000))
+                {
+                    process.Kill();
+                    process.WaitForExit();
+                    throw new TimeoutException("Timed out while checking the lsd version.");
+                }
+                string versionText = output.GetAwaiter().GetResult();
+                string errorText = error.GetAwaiter().GetResult();
+                var match = System.Text.RegularExpressions.Regex.Match(versionText, @"\blsd\s+(\d+\.\d+\.\d+)");
+                if (process.ExitCode != 0 || !match.Success)
+                    throw new InvalidDataException("Could not determine the bundled lsd version: " + errorText);
+                return Version.Parse(match.Groups[1].Value);
+            }
         }
 
         private static Version ParseModuleVersion(string value)

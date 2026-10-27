@@ -1,108 +1,126 @@
-﻿{
-  "$schema": "https://planxlab.com",
+{
   "version": 4,
   "final_space": true,
+  "palette": {
+    "path": "#8FB6D8",
+    "drive": "#A5B4C4",
+    "folder": "#56B6C2",
+    "clean": "#98C379",
+    "changed": "#E5C07B",
+    "error": "#E06C75",
+    "muted": "#9DA5B4",
+    "rail": "#596574",
+    "surface": "#252B33"
+  },
+  "transient_prompt": {
+    "background": "transparent",
+    "foreground": "p:muted",
+    "foreground_templates": [
+      "{{ if gt .Code 0 }}p:error{{ end }}"
+    ],
+    "template": "❯ ",
+    "newline": false
+  },
   "blocks": [
     {
       "type": "prompt",
       "alignment": "left",
       "newline": true,
-      "filler": "<transparent><#3a3a3a>·</></>",
       "segments": [
         {
-          "type": "os",
-          "style": "diamond",
-          "leading_diamond": "<#6c6c6c,transparent>╭─</><#87afaf,transparent>\ue0b6</>",
-          "trailing_diamond": "\ue0bc",
-          "background": "#87afaf",
-          "foreground": "#080808",
-          "template": " {{ .Icon }} "
+          "type": "text",
+          "style": "plain",
+          "foreground": "p:rail",
+          "template": "╭─"
         },
         {
           "type": "session",
-          "style": "diamond",
-          "trailing_diamond": "\ue0bc",
-          "background": "#444444",
-          "foreground": "#bcbcbc",
-          "background_templates": [
-            "{{ if .Root }}#af5f5f{{ end }}"
-          ],
+          "style": "plain",
+          "foreground": "p:muted",
           "foreground_templates": [
-            "{{ if .Root }}#dadada{{ end }}"
+            "{{ if .Root }}p:error{{ end }}"
           ],
-          "template": " \uf007 {{ .UserName }} "
+          "template": "{{ if .Root }} admin {{ else if .SSHSession }} {{ .UserName }}@{{ .HostName }} {{ end }}"
         },
         {
           "type": "path",
           "style": "diamond",
-          "trailing_diamond": "\ue0bc",
-          "background": "#5f87af",
-          "foreground": "#dadada",
+          "leading_diamond": "\ue0b6",
+          "trailing_diamond": "\ue0b4",
+          "background": "p:surface",
+          "foreground": "p:path",
           "options": {
-            "style": "fish",
-            "dir_length": 1
+            "style": "agnoster_short",
+            "max_depth": 2,
+            "folder_icon": "…",
+            "folder_separator_icon": "/",
+            "left_format": "<p:drive>%s</>",
+            "right_format": "<p:folder>%s</>"
           },
-          "template": " \uf07c {{ .Path }} "
+          "template": "<p:drive>\uf0a0</> {{ .Path }} "
         },
         {
           "type": "git",
-          "style": "diamond",
-          "trailing_diamond": "\ue0bc",
-          "background": "#87af87",
-          "foreground": "#080808",
-          "background_templates": [
-            "{{ if or (gt .Working.Unmerged 0) (gt .Staging.Unmerged 0) }}#af5f5f{{ end }}",
-            "{{ if or (.Working.Changed) (.Staging.Changed) }}#d7af5f{{ end }}"
+          "style": "plain",
+          "min_width": 70,
+          "foreground": "p:clean",
+          "foreground_templates": [
+            "{{ if or (gt .Working.Unmerged 0) (gt .Staging.Unmerged 0) }}p:error{{ else if or .Working.Changed .Staging.Changed }}p:changed{{ end }}"
           ],
           "options": {
             "fetch_status": true,
             "fetch_stash_count": true,
-            "branch_max_length": 32,
+            "branch_max_length": 24,
             "truncate_symbol": "…",
-            "branch_icon": "\uf418 "
+            "branch_icon": "\ue0a0 "
           },
-          "template": " {{ .HEAD }}{{ if gt .Behind 0 }} \uf063 {{ .Behind }}{{ end }}{{ if gt .Ahead 0 }} \uf062 {{ .Ahead }}{{ end }}{{ if gt .StashCount 0 }} \uf01c {{ .StashCount }}{{ end }}{{ if gt .Staging.Unmerged 0 }} <#dadada>\uf071 {{ .Staging.Unmerged }}</>{{ end }}{{ if .Staging.Changed }} \uf046 {{ .Staging.Total }}{{ end }}{{ if gt .Working.Modified 0 }} \uf044 {{ .Working.Modified }}{{ end }}{{ if gt .Working.Untracked 0 }} \uf059 {{ .Working.Untracked }}{{ end }} "
+          "template": " <p:rail>─</> {{ .HEAD }}{{ if gt .Behind 0 }} ↓{{ .Behind }}{{ end }}{{ if gt .Ahead 0 }} ↑{{ .Ahead }}{{ end }}{{ if .Staging.Changed }} S:{{ .Staging.String }}{{ end }}{{ if .Working.Changed }} W:{{ .Working.String }}{{ end }}{{ if gt .StashCount 0 }} ≡{{ .StashCount }}{{ end }} "
         }
       ]
     },
     {
       "type": "prompt",
       "alignment": "right",
+      "overflow": "hide",
+      "filler": "<p:rail>─</>",
       "segments": [
         {
           "type": "status",
-          "style": "diamond",
-          "leading_diamond": "\ue0ba",
-          "background": "#af5f5f",
-          "foreground": "#dadada",
+          "style": "plain",
+          "min_width": 80,
+          "foreground": "p:error",
           "options": {
             "always_enabled": false
           },
-          "template": " \uf00d {{ .Code }} "
+          "template": " exit {{ .Code }} "
         },
         {
           "type": "executiontime",
-          "style": "diamond",
-          "leading_diamond": "\ue0ba",
-          "background": "#afaf5f",
-          "foreground": "#080808",
+          "style": "plain",
+          "min_width": 80,
+          "foreground": "p:changed",
           "options": {
             "style": "austin",
-            "always_enabled": true
+            "threshold": 1000,
+            "always_enabled": false
           },
-          "template": " \uf252 {{ .FormattedMs }} "
+          "template": " {{ .FormattedMs }} "
         },
         {
           "type": "time",
-          "style": "diamond",
-          "leading_diamond": "\ue0ba",
-          "trailing_diamond": "<#87afaf,transparent>\ue0b4</><#6c6c6c,transparent>─╮</>",
-          "background": "#87afaf",
-          "foreground": "#080808",
+          "style": "plain",
+          "min_width": 50,
+          "foreground": "p:muted",
           "options": {
-            "time_format": "15:04:05"
+            "time_format": "15:04"
           },
           "template": " \uf017 {{ .CurrentDate | date .Format }} "
+        },
+        {
+          "type": "text",
+          "style": "plain",
+          "foreground": "p:rail",
+          "template": "╮"
         }
       ]
     },
@@ -114,27 +132,28 @@
         {
           "type": "text",
           "style": "plain",
-          "foreground": "#6c6c6c",
-          "template": "╰─"
+          "foreground": "p:rail",
+          "template": "╰─ "
         },
         {
           "type": "text",
           "style": "plain",
-          "foreground": "#87afaf",
+          "foreground": "p:clean",
           "foreground_templates": [
-            "{{ if gt .Code 0 }}#af5f5f{{ end }}"
+            "{{ if gt .Code 0 }}p:error{{ end }}"
           ],
-          "template": "⚡"
+          "template": "❯"
         }
       ]
     },
     {
       "type": "rprompt",
+      "overflow": "hide",
       "segments": [
         {
           "type": "text",
           "style": "plain",
-          "foreground": "#6c6c6c",
+          "foreground": "p:rail",
           "template": "─╯"
         }
       ]

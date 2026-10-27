@@ -117,7 +117,31 @@ A typical installed layout looks like this:
 
 ## Terminal (PowerShell 7)
 
-The integrated terminal runs **PowerShell 7** with a custom profile that provides a Unix-like experience on Windows. Type `?` at the prompt to list all available commands.
+The integrated terminal runs **PowerShell 7** with a custom profile that provides zsh-style editing, fuzzy history, and abbreviated path completion on Windows. PowerShell syntax and process semantics still apply. Type `??` at the prompt to list the bundled Unix commands.
+
+The prompt has two distinct levels: a framed information header with a path badge, Git state, and right-aligned clock icon, followed by a separate `╰─ ❯` input rail with a matching `─╯` right prompt. Drive icons and letters are muted blue-gray, intermediate paths are steel blue, and the current folder remains cyan at regular weight without underline. The header remains visible outside Git repositories. Git is green when clean, amber when changed, and red on conflicts; failed commands turn the input marker red. Submitted prompts reduce to a single `❯` line. Narrow terminals prioritize the frame and input rail: the clock appears from 50 columns, Git details from 70, and failure codes or durations of at least one second from 80 columns.
+
+### Editing and Completion
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+r` | Search unique history entries with fzf, newest first; Enter selects without executing, Esc cancels |
+| `Ctrl+t` | Select a file with PSFzf |
+| `Tab` / `Shift+Tab` | Complete paths and commands; cycle completion choices |
+| `Up` / `Down` | Search history using the current input prefix |
+| `Ctrl+a` / `Ctrl+e` | Move to the beginning/end of the line |
+| `Ctrl+b` / `Ctrl+f` | Move backward/forward one character; forward accepts inline suggestions |
+| `Alt+b` / `Alt+f` | Move backward/forward one word |
+| `Ctrl+w` / `Alt+Backspace` | Delete the previous word |
+| `Alt+d` / `Ctrl+k` | Delete the next word/rest of the line |
+| `Ctrl+u` / `Ctrl+y` | Delete to the beginning of the line / yank deleted text |
+| `Ctrl+l` / `Ctrl+_` | Clear the screen / undo |
+
+Path completion expands intermediate directory prefixes, not just the final component. For example, `cd D:/P/O/W/g` followed by Tab can expand to `D:/PlanXLabs/OneDrive/Workspace/github/`. Multiple matches remain available in the completion menu. Spaces and literal special characters are quoted safely. This also applies to `pushd` and common PowerShell file commands.
+
+A drive prefix such as `D:` starts completion at that drive's root. Without a colon, completion starts in the current directory and stays relative: `cd Code` can complete to `cd CodeNix\`. Likewise, `D/P/O/W/g` only searches matching local subdirectories; it never falls back to drive D. If no local match exists, the input is left unchanged. Directory completions retain a trailing separator so another component can be entered immediately.
+
+Python filenames entered directly remain unchanged on screen and in history. A `#!replx` shebang selects `replx`; otherwise `python` runs synchronously in the current terminal.
 
 ### Navigation
 
@@ -128,7 +152,8 @@ The integrated terminal runs **PowerShell 7** with a custom profile that provide
 | `....` | Go up three directories |
 | `z <dir>` | Jump to a frequently visited directory (zoxide) |
 | `zi` | Interactively select a directory to jump to (zoxide + fzf) |
-| `<dirname>` | Change into a directory by typing its name directly |
+| `cd -` | Return to the previous directory |
+| `pushd <dir>` / `popd` | Push/pop the directory stack |
 
 ### File and Directory Listing
 
@@ -136,11 +161,15 @@ The integrated terminal runs **PowerShell 7** with a custom profile that provide
 |---------|-----------|-------------|
 | `ls` | `lsd` | Colorized directory listing with icons |
 | `ll` | `lsd -l` | Long format listing |
-| `la` | `lsd -lall` | Long format including hidden files |
+| `la` | `lsd -la` | Long format including hidden files |
 | `cat <file>` | `bat` | Syntax-highlighted file viewer with Git integration |
 | `find` | `fd` | Fast, user-friendly alternative to `find` |
 | `du` | `dust` | Disk usage with visual tree |
 | `df` | `duf` | Disk free space overview |
+
+When listing a Windows drive root, `ls`, `ll`, and `la` exclude reserved protected entries such as `pagefile.sys`, `System Volume Information`, and `WindowsApps` before lsd reads their metadata. Ordinary directories are unchanged, and real path errors remain visible. Invoke `lsd` directly for an unfiltered listing.
+
+The installer upgrades bundled lsd versions older than 1.2.0 using the official Windows release with a pinned SHA256 checksum and preserves the previous executable. This avoids legacy ACL parsing errors that could omit otherwise readable folders. Windows listings use file attributes rather than Unix permission metadata; no filesystem permissions or ACLs are changed. A standalone lsd in the portable PowerShell `bin` directory takes precedence over the module copy.
 
 ### Text Processing
 
