@@ -107,7 +107,7 @@ namespace VSCodePortableInstaller
             System.Net.ServicePointManager.Expect100Continue = false;
 
             InitializeComponent();
-            CodeLauncherTheme.Apply(
+            CodeNixTheme.Apply(
                 this,
                 headerPanel,
                 headerTitleLabel,
@@ -296,7 +296,7 @@ namespace VSCodePortableInstaller
                 return;
 
             pythonVersionCheckInProgress = true;
-            CodeLauncherTheme.StyleBusyButton(installButton, "Checking Python...");
+            CodeNixTheme.StyleBusyButton(installButton, "Checking Python...");
             installPathTextBox.Enabled = false;
             browseButton.Enabled = false;
             pythonVersionTextBox.Enabled = false;
@@ -322,7 +322,7 @@ namespace VSCodePortableInstaller
                 LogActivity("Python: Embeddable package check failed - " + ex.Message);
                 MessageBox.Show(
                     this,
-                    "CodeLauncher could not verify the selected Python embeddable package. No packages were installed.\n\n" +
+                    "CodeNix could not verify the selected Python embeddable package. No packages were installed.\n\n" +
                     ex.Message + "\n\nCheck your internet connection and try again.",
                     "Python Version Check Failed",
                     MessageBoxButtons.OK,
@@ -870,8 +870,8 @@ namespace VSCodePortableInstaller
                 prompt.MaximizeBox = false;
                 prompt.ShowInTaskbar = false;
                 prompt.ClientSize = new Size(430, 158);
-                prompt.BackColor = CodeLauncherTheme.Background;
-                prompt.ForeColor = CodeLauncherTheme.TextPrimary;
+                prompt.BackColor = CodeNixTheme.Background;
+                prompt.ForeColor = CodeNixTheme.TextPrimary;
                 prompt.Font = Font;
 
                 var messageLabel = new Label
@@ -880,7 +880,7 @@ namespace VSCodePortableInstaller
                     Location = new Point(12, 12),
                     Size = new Size(406, 55),
                     Text = message,
-                    ForeColor = CodeLauncherTheme.TextPrimary,
+                    ForeColor = CodeNixTheme.TextPrimary,
                     TextAlign = ContentAlignment.MiddleLeft
                 };
                 var versionTextBox = new TextBox
@@ -888,8 +888,8 @@ namespace VSCodePortableInstaller
                     Location = new Point(12, 75),
                     Size = new Size(406, 23),
                     BorderStyle = BorderStyle.FixedSingle,
-                    BackColor = CodeLauncherTheme.Surface,
-                    ForeColor = CodeLauncherTheme.TextPrimary,
+                    BackColor = CodeNixTheme.Surface,
+                    ForeColor = CodeNixTheme.TextPrimary,
                     Text = string.Equals(currentVersion, "latest", StringComparison.OrdinalIgnoreCase)
                         ? string.Empty
                         : currentVersion ?? string.Empty
@@ -913,8 +913,8 @@ namespace VSCodePortableInstaller
                 prompt.Controls.Add(versionTextBox);
                 prompt.Controls.Add(checkButton);
                 prompt.Controls.Add(cancelButton);
-                CodeLauncherTheme.StylePrimaryButton(checkButton);
-                CodeLauncherTheme.StyleSecondaryButton(cancelButton);
+                CodeNixTheme.StylePrimaryButton(checkButton);
+                CodeNixTheme.StyleSecondaryButton(cancelButton);
                 prompt.AcceptButton = checkButton;
                 prompt.CancelButton = cancelButton;
                 prompt.Shown += (sender, args) =>
@@ -967,7 +967,7 @@ namespace VSCodePortableInstaller
 
             try
             {
-                CodeLauncherTheme.StyleBusyButton(installButton, "Installing...");
+                CodeNixTheme.StyleBusyButton(installButton, "Installing...");
             }
             catch { }
         }
@@ -984,7 +984,7 @@ namespace VSCodePortableInstaller
             {
                 installButton.Enabled = true;
                 installButton.Text = text;
-                CodeLauncherTheme.StylePrimaryButton(installButton);
+                CodeNixTheme.StylePrimaryButton(installButton);
             }
             catch { }
         }
@@ -1024,8 +1024,6 @@ namespace VSCodePortableInstaller
         {
             try
             {
-                CommonHelper.MigrateLegacyRuntimeFiles(installDir);
-
                 // Check for cancellation before starting
                 cancellationToken.ThrowIfCancellationRequested();
                 
@@ -1131,7 +1129,7 @@ namespace VSCodePortableInstaller
                 // Stop elapsed timer
                 StopElapsedTimer();
 
-                // Save installation log to codelauncher.log
+                // Save installation log to codenix.log
                 SaveInstallLog();
 
                 installCompleted = true;
@@ -1224,18 +1222,18 @@ namespace VSCodePortableInstaller
             { displayStatus = "Waiting"; category = "Waiting"; }
             
             // Color by category
-            Color statusColor = CodeLauncherTheme.TextTertiary;
+            Color statusColor = CodeNixTheme.TextTertiary;
             
             if (category == "Waiting")
-                statusColor = CodeLauncherTheme.TextTertiary;
+                statusColor = CodeNixTheme.TextTertiary;
             else if (category == "Downloading")
-                statusColor = CodeLauncherTheme.Accent;
+                statusColor = CodeNixTheme.Accent;
             else if (category == "Working")
-                statusColor = CodeLauncherTheme.Accent;
+                statusColor = CodeNixTheme.Accent;
             else if (category == "Completed")
-                statusColor = CodeLauncherTheme.Success;
+                statusColor = CodeNixTheme.Success;
             else if (category == "Failed")
-                statusColor = CodeLauncherTheme.Error;
+                statusColor = CodeNixTheme.Error;
             
             // Show simplified status text
             statusLabel.Text = displayStatus;
@@ -1496,7 +1494,7 @@ namespace VSCodePortableInstaller
                 normalized.IndexOf("CLI detected", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 normalized.IndexOf("Found launcher resource:", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 normalized.IndexOf("Launcher extracted to:", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                normalized.IndexOf("codelauncher.info created successfully", StringComparison.OrdinalIgnoreCase) >= 0)
+                normalized.IndexOf("codenix.info created successfully", StringComparison.OrdinalIgnoreCase) >= 0)
                 return null;
 
             if (Regex.IsMatch(normalized, @"Downloading\.\.\.\s+\d+%", RegexOptions.IgnoreCase) ||
@@ -1556,7 +1554,7 @@ namespace VSCodePortableInstaller
                 return "PowerShell 7: Waiting for VS Code core download";
             if (normalized.IndexOf("Waiting for VS Code download to finish before installing pip", StringComparison.OrdinalIgnoreCase) >= 0)
                 return "Python: Waiting for VS Code core download";
-            if (normalized.Equals("Creating codelauncher.info file...", StringComparison.OrdinalIgnoreCase))
+            if (normalized.Equals("Creating codenix.info file...", StringComparison.OrdinalIgnoreCase))
                 return "Finalizing setup metadata";
             if (normalized.Equals("Extracting launcher.exe from embedded resources...", StringComparison.OrdinalIgnoreCase))
                 return "Finalizing launcher";
@@ -1650,7 +1648,7 @@ namespace VSCodePortableInstaller
                 {
                     var versions = await InstallPowerShell7Async(token);
                     
-                    // Update codelauncher.info with PowerShell versions
+                    // Update codenix.info with PowerShell versions
                     if (versions.Count > 0)
                     {
                         string pvsInfoPath = Path.Combine(installDir, "data", CommonHelper.RuntimeInfoFileName);
@@ -1671,7 +1669,7 @@ namespace VSCodePortableInstaller
                             }
                             
                             File.WriteAllLines(pvsInfoPath, lines, Encoding.UTF8);
-                            LogActivity("PowerShell 7: codelauncher.info updated");
+                            LogActivity("PowerShell 7: codenix.info updated");
                         }
                     }
                     
@@ -1727,9 +1725,7 @@ namespace VSCodePortableInstaller
                 {
                     var allVersions = new Dictionary<string, string>();
                     
-                    CommonHelper.MigrateLegacyRuntimeFiles(installDir);
-
-                    // Read existing codelauncher.info to get already installed versions
+                    // Read existing codenix.info to get already installed versions
                     string pvsInfoPath = Path.Combine(installDir, CommonHelper.RuntimeInfoFileName);
                     if (File.Exists(pvsInfoPath))
                     {
@@ -1746,7 +1742,7 @@ namespace VSCodePortableInstaller
                         LogActivity("Found " + allVersions.Count + " already installed components");
                     }
                     
-                    // Check which critical components need retry (check both codelauncher.info AND disk)
+                    // Check which critical components need retry (check both codenix.info AND disk)
                     // Python: needs retry if python.exe OR pip.cmd is missing
                     string pythonExeOnDisk = Path.Combine(installDir, "data", "lib", "python", "python.exe");
                     string pipCmdOnDisk    = Path.Combine(installDir, "data", "lib", "python", "pip.cmd");
@@ -3754,8 +3750,8 @@ namespace VSCodePortableInstaller
 
         private async Task CreatePvsInfo(Dictionary<string, string> versions)
         {
-            UpdateCurrentTask("Creating codelauncher.info...");
-            LogActivity("Creating codelauncher.info file...");
+            UpdateCurrentTask("Creating codenix.info...");
+            LogActivity("Creating codenix.info file...");
                 
             string pvsInfo = Path.Combine(installDir, CommonHelper.RuntimeInfoFileName);
             var lines = new List<string>();
@@ -3795,7 +3791,7 @@ namespace VSCodePortableInstaller
                     File.Delete(tempPath);
             }
 
-            LogActivity("codelauncher.info created successfully at: " + pvsInfo);
+            LogActivity("codenix.info created successfully at: " + pvsInfo);
             await Task.CompletedTask;
         }
 

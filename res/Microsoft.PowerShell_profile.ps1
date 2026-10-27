@@ -1,4 +1,4 @@
-# PowerShell profile for the CodeLauncher portable environment
+# PowerShell profile for the CodeNix portable environment
 
 [Console]::InputEncoding  = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -211,9 +211,67 @@ function ..   { Set-Location .. }
 function ...  { Set-Location ../.. }
 function .... { Set-Location ../../.. }
 
+# .py file runner detection and handling
+function Get-PyRunner ([string]$FilePath) {
+    $reader = $null
+    try {
+        $reader = [System.IO.File]::OpenText($FilePath)
+        $firstLine = $reader.ReadLine()
+        if ($null -ne $firstLine -and $firstLine -match '^#!.*replx') {
+            return 'replx'
+        }
+    }
+    catch {}
+    finally {
+        if ($null -ne $reader) { $reader.Dispose() }
+    }
+    return 'python'
+}
+
+$ExecutionContext.InvokeCommand.CommandNotFoundAction = {
+    param($CommandName, $CommandLookupEventArgs)
+
+    $cleanName = $CommandName -replace '^__py_exec__:', ''
+    if ($cleanName -like '*.py') {
+        $resolved = Resolve-Path -LiteralPath $cleanName -ErrorAction SilentlyContinue
+        if ($resolved -and [System.IO.File]::Exists($resolved.ProviderPath)) {
+            $targetFile = $resolved.ProviderPath
+            $runner     = Get-PyRunner $targetFile
+
+            $CommandLookupEventArgs.CommandScriptBlock = {
+                & $runner $targetFile @args
+            }.GetNewClosure()
+            $CommandLookupEventArgs.StopSearch = $true
+        }
+    }
+}
+
+Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
+    $line = $null
+    $cursor = $null
+    [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
+
+    if ($line -match '^\s*(?<quote>["'']?)(?<file>(?:\.[\\/])?[^\s"'']+\.py)\k<quote>(?<rest>\s+.*|$)') {
+        $rawFile = $matches['file']
+        $rest    = $matches['rest']
+
+        $resolved = Resolve-Path -LiteralPath $rawFile -ErrorAction SilentlyContinue
+        if ($resolved -and [System.IO.File]::Exists($resolved.ProviderPath)) {
+            $runner = Get-PyRunner $resolved.ProviderPath
+            
+            $safeFile = if ($rawFile -match '\s') { "`"$rawFile`"" } else { $rawFile }
+            $newLine  = "$runner $safeFile$rest"
+
+            [Microsoft.PowerShell.PSConsoleReadLine]::Replace(0, $line.Length, $newLine)
+        }
+    }
+
+    [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+}
+
 # Help command '??'
 function global:?? {
-    $pvsInfo = [System.IO.Path]::GetFullPath("$Base\..\..\..\codelauncher.info")
+    $pvsInfo = [System.IO.Path]::GetFullPath("$Base\..\..\..\codenix.info")
     $modernUnixVersion = ''
     
     if ([System.IO.File]::Exists($pvsInfo)) {
@@ -226,7 +284,7 @@ function global:?? {
     }
     
     if (-not $modernUnixVersion) {
-        Write-Host "modern-unix-win version not found in codelauncher.info" -ForegroundColor Red
+        Write-Host "modern-unix-win version not found in codenix.info" -ForegroundColor Red
         return
     }
     

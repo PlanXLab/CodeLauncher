@@ -1,22 +1,21 @@
-# CodeLauncher
+# CodeNix
 
-CodeLauncher is a portable Windows development environment installer and updater. The current repository is built around two WinForms executables:
+CodeNix is a portable Windows development environment installer and updater. The current repository is built around two WinForms executables:
 
-- `CodeLauncher.exe`: initial installation
+- `CodeNix.exe`: initial installation
 - `launcher.exe`: launch, version checks, and upgrades
 
-The final distributable is `CodeLauncher.exe` only. `launcher.exe` is embedded into the installer and extracted into the target folder during installation.
+The final distributable is `CodeNix.exe` only. `launcher.exe` is embedded into the installer and extracted into the target folder during installation.
 
 ## Download
 
-- Latest release page: https://github.com/PlanXLab/CodeLauncher/releases/latest
-- Latest `CodeLauncher.exe`: https://github.com/PlanXLab/CodeLauncher/releases/latest/download/CodeLauncher.exe
+- Latest `CodeNix.exe`: https://github.com/PlanXLab/CodeNix/releases/latest/download/CodeNix.exe
 
 ## Current Architecture
 
 ### Installer
 
-`CodeLauncher.exe` installs the latest available versions of the following components:
+`CodeNix.exe` installs the latest available versions of the following components:
 
 - VS Code
 - Python Embedded
@@ -40,7 +39,7 @@ Installer UI behavior:
 
 - Default installation path is `C:\VSCode`
 - Enter a Python `3.x` major.minor version, or leave the field empty for the latest Windows embeddable release
-- CodeLauncher verifies the embeddable package before installation; if it is unavailable, it asks for another version before installing any packages
+- CodeNix verifies the embeddable package before installation; if it is unavailable, it asks for another version before installing any packages
 - Pressing `Enter` in the Python version field starts installation immediately
 - The UI provides overall progress, per-component progress, and a filtered Key Events log
 
@@ -55,7 +54,7 @@ Installer UI behavior:
 - Creates `upgrade_*` flag files when updates are available
 - Shows the update prompt during the same launch; skipping or completing updates closes the prompt and starts VS Code
 
-Move the entire installation folder to another PC, then run `launcher.exe` once. CodeLauncher refreshes shortcut targets and registers the bundled fonts for that PC; VS Code, Python, PowerShell, extensions, modules, and PowerShell command history remain under the portable folder. PowerShell history is stored at `data\user-data\PowerShell\History.txt`. If an update check is unavailable, CodeLauncher reports the issue and continues with the installed versions.
+Move the entire installation folder to another PC, then run `launcher.exe` once. CodeNix refreshes shortcut targets and registers the bundled fonts for that PC; VS Code, Python, PowerShell, extensions, modules, and PowerShell command history remain under the portable folder. PowerShell history is stored at `data\user-data\PowerShell\History.txt`. If an update check is unavailable, CodeNix reports the issue and continues with the installed versions.
 
 Upgradeable components:
 
@@ -70,8 +69,8 @@ Upgradeable components:
 
 The installation root contains the following runtime files:
 
-- `codelauncher.info`: installation path and installed component versions
-- `codelauncher.log`: installation log
+- `codenix.info`: installation path and installed component versions
+- `codenix.log`: installation log
 - `upgrade.log`: upgrade log
 - `upgrade_*`: launcher-generated upgrade flag files
 
@@ -83,8 +82,8 @@ A typical installed layout looks like this:
 <install-root>/
 ├─ Code.exe
 ├─ launcher.exe
-├─ codelauncher.info
-├─ codelauncher.log
+├─ codenix.info
+├─ codenix.log
 ├─ upgrade.log
 ├─ data/
 │  ├─ extensions/
@@ -101,7 +100,7 @@ A typical installed layout looks like this:
 
 ### End Users
 
-1. Download `CodeLauncher.exe` from GitHub Releases.
+1. Download `CodeNix.exe` from GitHub Releases.
 2. Run it and choose the installation path and Python version.
 3. After installation, launch VS Code through `launcher.exe` or the created shortcut.
 4. From that point on, `launcher.exe` checks for updates and handles upgrades.

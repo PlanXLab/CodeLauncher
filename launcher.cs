@@ -80,7 +80,7 @@ namespace VSCodePortableLauncher
             System.Net.ServicePointManager.Expect100Continue = false;
 
             InitializeComponent();
-            CodeLauncherTheme.Apply(
+            CodeNixTheme.Apply(
                 this,
                 headerPanel,
                 headerTitleLabel,
@@ -194,7 +194,7 @@ namespace VSCodePortableLauncher
                     return;
 
                 upgradeStarted = true;
-                CodeLauncherTheme.StyleBusyButton(upgradeButton, "Updating...");
+                CodeNixTheme.StyleBusyButton(upgradeButton, "Updating...");
                 cancelButton.Enabled = false;
                 UpdateCurrentTask("Now: Preparing updates");
 
@@ -235,7 +235,7 @@ namespace VSCodePortableLauncher
 
                 if (!File.Exists(pvsInfo))
                 {
-                    throw new FileNotFoundException("The CodeLauncher version file was not found.", pvsInfo);
+                    throw new FileNotFoundException("The CodeNix version file was not found.", pvsInfo);
                 }
 
                 // Terminate Code.exe if pwsh7 or vscode upgrade is needed
@@ -405,7 +405,7 @@ namespace VSCodePortableLauncher
                     {
                         upgradeButton.Enabled = true;
                         upgradeButton.Text = "Retry failed updates";
-                        CodeLauncherTheme.StylePrimaryButton(upgradeButton);
+                        CodeNixTheme.StylePrimaryButton(upgradeButton);
                         cancelButton.Enabled = true;
                         cancelButton.Text = "Launch without updates";
                         UpdateCurrentTask("Check: Some updates failed");
@@ -428,7 +428,7 @@ namespace VSCodePortableLauncher
                 {
                     upgradeButton.Enabled = true;
                     upgradeButton.Text = "Retry updates";
-                    CodeLauncherTheme.StylePrimaryButton(upgradeButton);
+                    CodeNixTheme.StylePrimaryButton(upgradeButton);
                     cancelButton.Enabled = true;
                     cancelButton.Text = "Launch without updates";
                     UpdateCurrentTask("Check: Upgrade failed");
@@ -468,14 +468,14 @@ namespace VSCodePortableLauncher
                 {
                     kvp.Value.Item1.Text = GetDisplayComponentName(kvp.Key);
                     kvp.Value.Item2.Text = "Waiting";
-                    kvp.Value.Item2.ForeColor = CodeLauncherTheme.TextTertiary;
+                    kvp.Value.Item2.ForeColor = CodeNixTheme.TextTertiary;
                     kvp.Value.Item3.Value = 0;
                 }
                 else
                 {
                     kvp.Value.Item1.Text = "-";
                     kvp.Value.Item2.Text = "Not needed";
-                    kvp.Value.Item2.ForeColor = CodeLauncherTheme.TextTertiary;
+                    kvp.Value.Item2.ForeColor = CodeNixTheme.TextTertiary;
                     kvp.Value.Item3.Value = 0;
                 }
             }
@@ -582,15 +582,15 @@ namespace VSCodePortableLauncher
                 progressBar.Value = Math.Min(progress, 100);
 
                 if (category == "Waiting")
-                    statusLabel.ForeColor = CodeLauncherTheme.TextTertiary;
+                    statusLabel.ForeColor = CodeNixTheme.TextTertiary;
                 else if (category == "Downloading")
-                    statusLabel.ForeColor = CodeLauncherTheme.Accent;
+                    statusLabel.ForeColor = CodeNixTheme.Accent;
                 else if (category == "Working")
-                    statusLabel.ForeColor = CodeLauncherTheme.Accent;
+                    statusLabel.ForeColor = CodeNixTheme.Accent;
                 else if (category == "Completed")
-                    statusLabel.ForeColor = CodeLauncherTheme.Success;
+                    statusLabel.ForeColor = CodeNixTheme.Success;
                 else
-                    statusLabel.ForeColor = CodeLauncherTheme.Error;
+                    statusLabel.ForeColor = CodeNixTheme.Error;
 
                 overallStatusOverride = null;
                 UpdateOverallProgress();

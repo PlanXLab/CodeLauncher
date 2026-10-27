@@ -15,7 +15,7 @@ using System.Windows.Forms;
 
 namespace VSCodePortableCommon
 {
-    public static class CodeLauncherTheme
+    public static class CodeNixTheme
     {
         public static readonly Color Background = Color.FromArgb(238, 243, 249);
         public static readonly Color Surface = Color.White;
@@ -233,8 +233,8 @@ namespace VSCodePortableCommon
         // Constants - Optimized buffer sizes
         public const int BUFFER_SIZE = 65536; // 64KB for better I/O performance
         public const int EXTRACT_BUFFER_SIZE = 81920; // 80KB for extraction
-        public const string RuntimeInfoFileName = "codelauncher.info";
-        public const string RuntimeLogFileName = "codelauncher.log";
+        public const string RuntimeInfoFileName = "codenix.info";
+        public const string RuntimeLogFileName = "codenix.log";
 
         public static bool RemoveUtf8BomFromFile(string filePath)
         {
@@ -292,7 +292,7 @@ namespace VSCodePortableCommon
             string sitePackagesDir = Path.Combine(pythonDir, "Lib", "site-packages");
             Directory.CreateDirectory(sitePackagesDir);
 
-            const string workspacePathHookFileName = "codelauncher_workspace_paths.py";
+            const string workspacePathHookFileName = "codenix_workspace_paths.py";
             const string workspacePathHookContents =
                 "import os\r\n" +
                 "import sys\r\n" +
@@ -327,9 +327,10 @@ namespace VSCodePortableCommon
             string workspacePathHookFile = Path.Combine(sitePackagesDir, workspacePathHookFileName);
             WriteUtf8FileAtomicallyIfChanged(workspacePathHookFile, workspacePathHookContents);
 
-            string workspacePathHookEntry = "import codelauncher_workspace_paths" + Environment.NewLine;
-            string workspacePathHookPth = Path.Combine(sitePackagesDir, "codelauncher_workspace_paths.pth");
+            string workspacePathHookEntry = "import codenix_workspace_paths" + Environment.NewLine;
+            string workspacePathHookPth = Path.Combine(sitePackagesDir, "codenix_workspace_paths.pth");
             WriteUtf8FileAtomicallyIfChanged(workspacePathHookPth, workspacePathHookEntry);
+
         }
 
         private static string EnsurePythonPathConfiguration(string contents)
@@ -404,21 +405,6 @@ namespace VSCodePortableCommon
                 if (File.Exists(tempPath))
                     File.Delete(tempPath);
             }
-        }
-
-        public static void MigrateLegacyRuntimeFiles(string installDir)
-        {
-            MigrateLegacyRuntimeFile(installDir, "pvs.info", RuntimeInfoFileName);
-            MigrateLegacyRuntimeFile(Path.Combine(installDir, "data"), "pvs.info", RuntimeInfoFileName);
-            MigrateLegacyRuntimeFile(installDir, "pvs.log", RuntimeLogFileName);
-        }
-
-        private static void MigrateLegacyRuntimeFile(string directory, string legacyFileName, string currentFileName)
-        {
-            string legacyPath = Path.Combine(directory, legacyFileName);
-            string currentPath = Path.Combine(directory, currentFileName);
-            if (File.Exists(legacyPath) && !File.Exists(currentPath))
-                File.Move(legacyPath, currentPath);
         }
 
         public static async Task DownloadFileWithRetryAsync(
@@ -611,7 +597,7 @@ namespace VSCodePortableCommon
             using (var client = new HttpClient(handler))
             {
                 client.Timeout = TimeSpan.FromSeconds(20);
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeLauncher/1.0");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeNix/1.0");
                 string html = await client.GetStringAsync("https://www.python.org/ftp/python/");
                 string versionPattern = findLatestAvailable
                     ? @"3\.\d+\.\d+"
@@ -1162,7 +1148,7 @@ namespace VSCodePortableCommon
                 using (var client = new HttpClient())
                 {
                     client.Timeout = TimeSpan.FromMinutes(20);
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeLauncher/1.0");
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeNix/1.0");
                     client.DefaultRequestHeaders.ConnectionClose = false; // Keep-Alive
                     await CommonHelper.DownloadFileWithRetryAsync(client, downloadUrl, msixPath, default(System.Threading.CancellationToken));
                 }
@@ -1283,7 +1269,7 @@ namespace VSCodePortableCommon
                     using (var client = new HttpClient())
                     {
                         client.Timeout = TimeSpan.FromMinutes(5);
-                        client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeLauncher/1.0");
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeNix/1.0");
                         await CommonHelper.DownloadFileWithRetryAsync(
                             client,
                             downloadUrl,
@@ -1596,7 +1582,7 @@ namespace VSCodePortableCommon
             string pythonDir = Path.Combine(dataLibDir, "python");
             string stagingDir = Path.Combine(dataLibDir, ".python-stage-" + Guid.NewGuid().ToString("N"));
             string backupDir = Path.Combine(dataLibDir, ".python-backup");
-            string tempDir = Path.Combine(Path.GetTempPath(), "codelauncher-python-" + Guid.NewGuid().ToString("N"));
+            string tempDir = Path.Combine(Path.GetTempPath(), "codenix-python-" + Guid.NewGuid().ToString("N"));
 
             try
             {
@@ -1625,7 +1611,7 @@ namespace VSCodePortableCommon
                 using (var client = new HttpClient())
                 {
                     client.Timeout = TimeSpan.FromMinutes(20);
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeLauncher/1.0");
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeNix/1.0");
                     await CommonHelper.DownloadFileWithRetryAsync(
                         client,
                         downloadUrl,
@@ -1803,9 +1789,9 @@ namespace VSCodePortableCommon
 
             RecoverInterruptedUpdate(
                 baseDir,
-                Path.Combine(dataDir, ".codelauncher-vscode-stage"),
-                Path.Combine(dataDir, ".codelauncher-vscode-backup"),
-                Path.Combine(dataDir, ".codelauncher-vscode-update"));
+                Path.Combine(dataDir, ".codenix-vscode-stage"),
+                Path.Combine(dataDir, ".codenix-vscode-backup"),
+                Path.Combine(dataDir, ".codenix-vscode-update"));
         }
 
         public async Task<KeyValuePair<string, string>> UpgradeAsync(string tempBaseDir)
@@ -1814,9 +1800,9 @@ namespace VSCodePortableCommon
             string version = "";
             string tempDir = Path.Combine(tempBaseDir, "vscode");
             string dataDir = Path.Combine(baseDir, "data");
-            string stageDir = Path.Combine(dataDir, ".codelauncher-vscode-stage");
-            string backupDir = Path.Combine(dataDir, ".codelauncher-vscode-backup");
-            string updateMarker = Path.Combine(dataDir, ".codelauncher-vscode-update");
+            string stageDir = Path.Combine(dataDir, ".codenix-vscode-stage");
+            string backupDir = Path.Combine(dataDir, ".codenix-vscode-backup");
+            string updateMarker = Path.Combine(dataDir, ".codenix-vscode-update");
 
             try
             {
@@ -1829,7 +1815,7 @@ namespace VSCodePortableCommon
                 using (var client = new HttpClient())
                 {
                     client.Timeout = TimeSpan.FromMinutes(20);
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeLauncher/1.0");
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeNix/1.0");
                     client.DefaultRequestHeaders.ConnectionClose = false;
 
                     updateStatus(componentName, "Checking version...", 5);
@@ -2035,11 +2021,9 @@ namespace VSCodePortableCommon
         {
             return !name.Equals("data", StringComparison.OrdinalIgnoreCase) &&
                    !name.Equals("launcher.exe", StringComparison.OrdinalIgnoreCase) &&
-                   !name.Equals("CodeLauncher.exe", StringComparison.OrdinalIgnoreCase) &&
+                   !name.Equals("CodeNix.exe", StringComparison.OrdinalIgnoreCase) &&
                    !name.Equals(CommonHelper.RuntimeInfoFileName, StringComparison.OrdinalIgnoreCase) &&
                    !name.Equals(CommonHelper.RuntimeLogFileName, StringComparison.OrdinalIgnoreCase) &&
-                   !name.Equals("pvs.info", StringComparison.OrdinalIgnoreCase) &&
-                   !name.Equals("pvs.log", StringComparison.OrdinalIgnoreCase) &&
                    !name.Equals("upgrade.log", StringComparison.OrdinalIgnoreCase) &&
                    !name.StartsWith("upgrade_", StringComparison.OrdinalIgnoreCase);
         }

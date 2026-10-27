@@ -7,14 +7,14 @@
     <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>VSCodePortableInstaller</RootNamespace>
-    <AssemblyName>CodeLauncher</AssemblyName>
+    <AssemblyName>CodeNix</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
-    <ApplicationIcon>res\codelauncher.ico</ApplicationIcon>
+    <ApplicationIcon>res\codenix.ico</ApplicationIcon>
     <LangVersion>5</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -73,7 +73,7 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="res\codelauncher.ico" />
+    <Content Include="res\codenix.ico" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="dist\" />

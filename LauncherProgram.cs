@@ -57,8 +57,8 @@ namespace VSCodePortableLauncher
                             return 0;
 
                         MessageBox.Show(
-                            "Another CodeLauncher update check or update is already running for this folder. Try again after it finishes.",
-                            "CodeLauncher is busy",
+                            "Another CodeNix update check or update is already running for this folder. Try again after it finishes.",
+                            "CodeNix is busy",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Information);
                         return 1;
@@ -66,7 +66,6 @@ namespace VSCodePortableLauncher
 
                     try
                     {
-                        CommonHelper.MigrateLegacyRuntimeFiles(pvsDir);
                         RecoverInterruptedPackageUpdates(pvsDir);
 
                         if (args.Contains("--init"))
@@ -102,7 +101,7 @@ namespace VSCodePortableLauncher
             using (var sha256 = SHA256.Create())
             {
                 byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(normalizedPath));
-                return "Local\\CodeLauncher.Update." + BitConverter.ToString(hash).Replace("-", string.Empty);
+                return "Local\\CodeNix.Update." + BitConverter.ToString(hash).Replace("-", string.Empty);
             }
         }
 
@@ -110,7 +109,7 @@ namespace VSCodePortableLauncher
         {
             var client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(15);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeLauncher/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("CodeNix/1.0");
             client.DefaultRequestHeaders.ConnectionClose = false;
             return client;
         }
@@ -138,11 +137,11 @@ namespace VSCodePortableLauncher
                 }
                 catch (IOException ex)
                 {
-                    MessageBox.Show("Could not update portable folder metadata: " + ex.Message, "CodeLauncher warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Could not update portable folder metadata: " + ex.Message, "CodeNix warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 catch (UnauthorizedAccessException ex)
                 {
-                    MessageBox.Show("Could not update portable folder metadata: " + ex.Message, "CodeLauncher warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Could not update portable folder metadata: " + ex.Message, "CodeNix warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
 
@@ -164,7 +163,7 @@ namespace VSCodePortableLauncher
                 if (!powerShellThemeReady)
                     failures.Add("portable PowerShell theme (" + powerShellThemeError + ")");
                 MessageBox.Show(
-                    "CodeLauncher could not fully prepare this PC: " + string.Join(", ", failures.ToArray()) + ".\r\nVS Code will still be launched.",
+                    "CodeNix could not fully prepare this PC: " + string.Join(", ", failures.ToArray()) + ".\r\nVS Code will still be launched.",
                     "Portable setup warning",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -174,7 +173,7 @@ namespace VSCodePortableLauncher
             if (checkErrors.Count > 0)
             {
                 MessageBox.Show(
-                    "Some package versions could not be checked. CodeLauncher will continue with the installed versions.\r\n\r\n" +
+                    "Some package versions could not be checked. CodeNix will continue with the installed versions.\r\n\r\n" +
                     string.Join("\r\n", checkErrors.ToArray()),
                     "Update check incomplete",
                     MessageBoxButtons.OK,
@@ -210,7 +209,7 @@ namespace VSCodePortableLauncher
             string codeExe = Path.Combine(pvsDir, "Code.exe");
             if (!File.Exists(codeExe))
             {
-                MessageBox.Show("Code.exe was not found in this portable folder. Run CodeLauncher.exe to install the environment.",
+                MessageBox.Show("Code.exe was not found in this portable folder. Run CodeNix.exe to install the environment.",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -230,7 +229,7 @@ namespace VSCodePortableLauncher
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    "CodeLauncher could not configure Python to import modules from the current workspace. Python may not be able to import workspace-local modules.\r\n\r\n" +
+                    "CodeNix could not configure Python to import modules from the current workspace. Python may not be able to import workspace-local modules.\r\n\r\n" +
                     ex.Message,
                     "Python workspace configuration warning",
                     MessageBoxButtons.OK,
@@ -487,27 +486,34 @@ namespace VSCodePortableLauncher
 
                 CommonHelper.RemoveUtf8BomFromFile(themePath);
 
-                string profilePath = Path.Combine(powerShellDir, "Microsoft.PowerShell_profile.ps1");
-                if (File.Exists(profilePath))
+                string[] profilePaths =
                 {
+                    Path.Combine(powerShellDir, "Microsoft.PowerShell_profile.ps1"),
+                    Path.Combine(originDir, "Microsoft.PowerShell_profile.ps1")
+                };
+                foreach (string profilePath in profilePaths)
+                {
+                    if (!File.Exists(profilePath))
+                        continue;
+
                     string profileContents = File.ReadAllText(profilePath);
                     string updatedProfile = profileContents.Replace("tos-term.omp.json", "tos-therm.omp.json");
-                    if (!string.Equals(profileContents, updatedProfile, StringComparison.Ordinal))
+                    if (string.Equals(profileContents, updatedProfile, StringComparison.Ordinal))
+                        continue;
+
+                    string tempProfilePath = profilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                    try
                     {
-                        string tempProfilePath = profilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-                        try
-                        {
-                            File.WriteAllText(tempProfilePath, updatedProfile, new UTF8Encoding(false));
-                            if (File.Exists(profilePath))
-                                File.Replace(tempProfilePath, profilePath, null);
-                            else
-                                File.Move(tempProfilePath, profilePath);
-                        }
-                        finally
-                        {
-                            if (File.Exists(tempProfilePath))
-                                File.Delete(tempProfilePath);
-                        }
+                        File.WriteAllText(tempProfilePath, updatedProfile, new UTF8Encoding(false));
+                        if (File.Exists(profilePath))
+                            File.Replace(tempProfilePath, profilePath, null);
+                        else
+                            File.Move(tempProfilePath, profilePath);
+                    }
+                    finally
+                    {
+                        if (File.Exists(tempProfilePath))
+                            File.Delete(tempProfilePath);
                     }
                 }
 
