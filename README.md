@@ -9,7 +9,8 @@ The final distributable is `CodeNix.exe` only. `launcher.exe` is embedded into t
 
 ## Download
 
-- Latest `CodeNix.exe`: https://github.com/PlanXLab/CodeNix/releases/latest/download/CodeNix.exe
+- Latest release page: https://github.com/PlanXLab/CodeLauncher/releases/latest
+- Latest `CodeLauncher.exe`: https://github.com/PlanXLab/CodeLauncher/releases/latest/download/CodeLauncher.exe
 
 ## Current Architecture
 
